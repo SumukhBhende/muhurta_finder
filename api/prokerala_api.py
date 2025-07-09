@@ -1,5 +1,3 @@
-# api/prokerala_api.py
-
 import requests
 import os
 from dotenv import load_dotenv
@@ -20,58 +18,54 @@ def get_access_token():
         "client_id": API_KEY,
         "client_secret": API_SECRET
     }
-    response = requests.post(url, headers=headers, data=data)
-
-    if response.status_code == 200:
-        return response.json()["access_token"]
-    else:
-        print("⚠️ Failed to get token:", response.status_code, response.text)
-        return None
+    r = requests.post(url, headers=headers, data=data)
+    return r.json().get("access_token") if r.ok else None
 
 def get_coordinates_from_place(place):
-    # TODO: Add Google Geocoding later
-    # Hardcoded fallback (Mapusa, Goa)
-    return {"latitude": 15.591, "longitude": 73.815}
+    return {"latitude": 15.591, "longitude": 73.815}  # TODO: Use geocoding later
 
 def get_rashi_nakshatra_from_birth(dob, tob, place):
     coords = get_coordinates_from_place(place)
-    latitude = coords["latitude"]
-    longitude = coords["longitude"]
+    dt = datetime.combine(dob, tob)
+    tz = pytz.timezone("Asia/Kolkata")
+    iso_dt = tz.localize(dt).isoformat()
 
-    # Format datetime with timezone
-    naive_dt = datetime.combine(dob, tob)
-    ist = pytz.timezone("Asia/Kolkata")
-    local_dt = ist.localize(naive_dt)
-    iso_dt = local_dt.isoformat()  # → 2025-07-09T11:59:41+05:30
+    token = get_access_token()
+    if not token: return None, None
 
-    access_token = get_access_token()
-    if not access_token:
-        return None, None
-
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-
+    url = f"{API_BASE_URL}/astrology/kundli"
+    headers = {"Authorization": f"Bearer {token}"}
     params = {
         "ayanamsa": 1,
-        "coordinates": f"{latitude},{longitude}",
+        "coordinates": f"{coords['latitude']},{coords['longitude']}",
         "datetime": iso_dt
     }
 
-    url = f"{API_BASE_URL}/astrology/kundli"
-    response = requests.get(url, headers=headers, params=params)
+    r = requests.get(url, headers=headers, params=params)
+    if not r.ok:
+        return None, None
 
-    if response.status_code == 200:
-        data = response.json()
-
-        # Extract Moon's Rashi and Nakshatra
-        for planet in data["data"]["planetaryPositions"]:
-            if planet["planet"]["name"] == "Moon":
-                rashi = planet["rasi"]["name"]
-                nakshatra = planet["nakshatra"]["name"]
-                return rashi, nakshatra
-    else:
-        print("⚠️ API Error:", response.status_code, response.text)
-
+    data = r.json()
+    for planet in data["data"]["planetaryPositions"]:
+        if planet["planet"]["name"] == "Moon":
+            return planet["rasi"]["name"], planet["nakshatra"]["name"]
     return None, None
 
+def get_choghadiya(date_str, latitude, longitude, timezone="Asia/Kolkata"):
+    token = get_access_token()
+    if not token: return []
+
+    url = f"{API_BASE_URL}/astrology/choghadiya"
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {
+        "date": date_str,
+        "coordinates": f"{latitude},{longitude}",
+        "timezone": timezone
+    }
+
+    r = requests.get(url, headers=headers, params=params)
+    if not r.ok: return []
+
+    data = r.json().get("data", [])
+    good = {"Shubh", "Labh", "Amrit", "Chal"}
+    return [slot for slot in data if slot["type"] in good]
