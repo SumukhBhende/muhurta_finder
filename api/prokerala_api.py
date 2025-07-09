@@ -1,28 +1,25 @@
 # api/prokerala_api.py
 
 import requests
-import urllib.parse
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+import pytz
 
-# Load API credentials from .env file
 load_dotenv()
 
+API_BASE_URL = "https://api.prokerala.com/v2"
 API_KEY = os.getenv("PROKERALA_API_KEY")
 API_SECRET = os.getenv("PROKERALA_API_SECRET")
-API_BASE_URL = "https://api.prokerala.com"
 
 def get_access_token():
-    url = f"{API_BASE_URL}/token"
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
+    url = "https://api.prokerala.com/token"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
     data = {
         "grant_type": "client_credentials",
         "client_id": API_KEY,
         "client_secret": API_SECRET
     }
-
     response = requests.post(url, headers=headers, data=data)
 
     if response.status_code == 200:
@@ -32,13 +29,20 @@ def get_access_token():
         return None
 
 def get_coordinates_from_place(place):
-    # Static fallback – replace with real geocoder if needed
+    # TODO: Add Google Geocoding later
+    # Hardcoded fallback (Mapusa, Goa)
     return {"latitude": 15.591, "longitude": 73.815}
 
 def get_rashi_nakshatra_from_birth(dob, tob, place):
     coords = get_coordinates_from_place(place)
-    date_str = dob.strftime("%Y-%m-%d")
-    time_str = tob.strftime("%H:%M:%S")
+    latitude = coords["latitude"]
+    longitude = coords["longitude"]
+
+    # Format datetime with timezone
+    naive_dt = datetime.combine(dob, tob)
+    ist = pytz.timezone("Asia/Kolkata")
+    local_dt = ist.localize(naive_dt)
+    iso_dt = local_dt.isoformat()  # → 2025-07-09T11:59:41+05:30
 
     access_token = get_access_token()
     if not access_token:
@@ -49,23 +53,24 @@ def get_rashi_nakshatra_from_birth(dob, tob, place):
     }
 
     params = {
-        "ayanamsa": 1,  # Lahiri
-        "date": date_str,
-        "time": time_str,
-        "coordinates": f"{coords['latitude']},{coords['longitude']}"
+        "ayanamsa": 1,
+        "coordinates": f"{latitude},{longitude}",
+        "datetime": iso_dt
     }
 
-    query_string = urllib.parse.urlencode(params)
-    url = f"{API_BASE_URL}/astrology/birth-details?{query_string}"
-
-    response = requests.get(url, headers=headers)
+    url = f"{API_BASE_URL}/astrology/kundli"
+    response = requests.get(url, headers=headers, params=params)
 
     if response.status_code == 200:
         data = response.json()
-        moon = data["data"]["planet_positions"]["moon"]
-        nakshatra = data["data"]["nakshatra"]["name"]
-        rashi = moon["rasi"]["name"]
-        return rashi, nakshatra
+
+        # Extract Moon's Rashi and Nakshatra
+        for planet in data["data"]["planetaryPositions"]:
+            if planet["planet"]["name"] == "Moon":
+                rashi = planet["rasi"]["name"]
+                nakshatra = planet["nakshatra"]["name"]
+                return rashi, nakshatra
     else:
         print("⚠️ API Error:", response.status_code, response.text)
-        return None, None
+
+    return None, None
