@@ -44,8 +44,8 @@ selected_time = st.time_input("🕒 Select Time", datetime.now().time())
 
 # Submit Button
 if st.button("🔍 Find Muhurta"):
-    if not digipin or len(digipin.strip()) != 6:
-        st.error("Please enter a valid 6-character DigiPin.")
+    if not digipin or len(digipin.strip()) != 10:
+        st.error("Please enter a valid 10-character DigiPin (with or without hyphens, e.g. 4K9MCM52K7 or 4K9-MCM-52K7).")
     else:
         # Get coordinates for current location
         coords = get_location_coordinates(digipin)
