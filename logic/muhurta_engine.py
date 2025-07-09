@@ -43,7 +43,7 @@ def get_muhurtas(current_location, birth_datetime=None, birth_location=None, ras
             })
 
     # ✨ Tara Balam
-    tb_data = get_tara_balam(datetime_str, current_location, nakshatra)
+    tb_data = get_tara_balam(datetime_str, current_location, nakshatra) 
     valid_tb_windows = []
     for period in tb_data["data"]["tara_bala"]:
         nakshatra_names = [n["name"] for n in period["nakshatras"]]

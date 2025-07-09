@@ -3,6 +3,7 @@ import time
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
+import urllib.parse  # required for encoding datetime
 
 load_dotenv()
 
@@ -58,41 +59,133 @@ def make_api_call(endpoint, params):
     return response.json()
 
 # 🧠 Kundli Data (includes moon sign and nakshatra)
-def get_kundli_data(datetime_str, coordinates):
+def get_kundali(datetime_str, coordinates):
+    encoded_datetime = urllib.parse.quote(datetime_str)
+
     params = {
-        "ayanamsa": 1,
-        "datetime": datetime_str,
-        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}"
+        "ayanamsa": 1,  # Lahiri
+        "datetime": encoded_datetime,
+        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
+        "la": "en"
     }
-    return make_api_call("/astrology/kundli", params)
+
+    data = make_api_call("/v2/astrology/kundli/basic", params)
+    
+    if not data or "data" not in data:
+        return None
+
+    kundli_data = data["data"]
+    
+    nakshatra_name = (
+        kundli_data.get("nakshatra_details", {})
+        .get("nakshatra", {})
+        .get("name")
+    )
+
+    chandra_rasi_name = (
+        kundli_data.get("chandra_rasi", {})
+        .get("name")
+    )
+
+    return {
+        "nakshatra": nakshatra_name,
+        "chandra_rasi": chandra_rasi_name
+    }
 
 # 🌙 Chandra Balam
-def get_chandra_balam(datetime_str, coordinates, target_rashi):
+def get_chandra_balam(datetime_str, coordinates, target_rasi):
+    encoded_datetime = urllib.parse.quote(datetime_str)
+
     params = {
-        "ayanamsa": 1,
-        "datetime": datetime_str,
-        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}"
+        "ayanamsa": 1,  # Lahiri
+        "datetime": encoded_datetime,
+        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
+        "la": "en"
     }
-    data = make_api_call("/astrology/chandra-bala", params)
-    return target_rashi in data.get("data", {}).get("favorableRashi", [])
+
+    data = make_api_call("/v2/astrology/chandra-bala", params)
+
+    if not data or "data" not in data:
+        return None
+
+    favorable_rasis = data["data"].get("favorableRasi", [])
+    chandra_bala_periods = data["data"].get("chandraBala", [])
+
+    for period in chandra_bala_periods:
+        rasi = period.get("rasi", {}).get("name")
+        end_time = period.get("end")
+        if rasi == target_rasi and rasi in favorable_rasis:
+            return {
+                "is_favorable": True,
+                "until": end_time  # ISO 8601 format
+            }
+
+    return {
+        "is_favorable": False,
+        "until": None
+    }
 
 # ✨ Tara Balam
 def get_tara_balam(datetime_str, coordinates, target_nakshatra):
+    encoded_datetime = urllib.parse.quote(datetime_str)
+
     params = {
-        "ayanamsa": 1,
-        "datetime": datetime_str,
-        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}"
+        "ayanamsa": 1,  # Lahiri
+        "datetime": encoded_datetime,
+        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
+        "la": "en"
     }
-    data = make_api_call("/astrology/tara-bala", params)
-    return target_nakshatra in data.get("data", {}).get("favorableNakshatra", [])
+
+    data = make_api_call("/v2/astrology/tara-bala", params)
+
+    if not data or "data" not in data:
+        return None
+
+    tara_periods = data["data"].get("tara_bala", [])
+
+    for period in tara_periods:
+        for nak in period.get("nakshatras", []):
+            if nak.get("name") == target_nakshatra:
+                return {
+                    "is_favorable": period.get("type") in ["Good", "Very Good"],
+                    "valid_until": period.get("end")  # ISO 8601 format
+                }
+
+    return {
+        "is_favorable": False,
+        "valid_until": None
+    }
 
 # 🕰️ Choghadiya
 def get_choghadiya(datetime_str, coordinates):
+    encoded_datetime = urllib.parse.quote(datetime_str)
+
     params = {
-        "datetime": datetime_str,
-        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}"
+        "ayanamsa": 1,
+        "datetime": encoded_datetime,
+        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
+        "la": "en"
     }
-    return make_api_call("/astrology/choghadiya", params)
+
+    data = make_api_call("/v2/astrology/choghadiya", params)
+
+    if not data or "data" not in data:
+        return []
+
+    favorable_types = {"Good", "Most Auspicious"}
+    favorable_periods = []
+
+    for muhurat in data["data"].get("muhurat", []):
+        if muhurat.get("type") in favorable_types:
+            favorable_periods.append({
+                "name": muhurat.get("name"),
+                "start": muhurat.get("start"),
+                "end": muhurat.get("end"),
+                "vela": muhurat.get("vela"),
+                "is_day": muhurat.get("is_day")
+            })
+
+    return favorable_periods
 
 # 🌙 Extract Rashi & Nakshatra (wrapper around kundli API)
 def get_rashi_nakshatra(birth_datetime, coordinates):
