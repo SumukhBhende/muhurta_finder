@@ -1,89 +1,65 @@
-from datetime import datetime
+# muhurta_engine.py
+from datetime import datetime, timedelta
 from api.prokerala_api import (
-    get_kundli_data,
+    get_choghadiya,
     get_chandra_balam,
     get_tara_balam,
-    get_choghadiya,
-    get_rashi_nakshatra
+    get_kundali,
 )
 
-def parse_time_range_overlap(range1, range2):
-    start = max(range1["start"], range2["start"])
-    end = min(range1["end"], range2["end"])
-    if start < end:
-        return {"start": start, "end": end}
-    return None
 
-def get_muhurtas(current_location, birth_datetime=None, birth_location=None, rashi=None, nakshatra=None):
-    now = datetime.utcnow().replace(second=0, microsecond=0)
-    datetime_str = now.isoformat() + "+00:00"
+def parse_iso_datetime(dt_str):
+    return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
 
-    lat = current_location["latitude"]
-    lon = current_location["longitude"]
 
-    # If birth datetime/location is given, derive rashi/nakshatra
-    if birth_datetime and birth_location:
-        birth_str = birth_datetime.isoformat() + "+00:00"
-        kundli = get_kundli_data(birth_str, birth_location)
-        rashi = kundli["data"]["moon"]["rasi"]["name"]
-        nakshatra = kundli["data"]["moon"]["nakshatra"]["name"]
+def get_favorable_muhurtas(date_str, location):
+    """
+    Main function to determine favorable muhurta blocks based on:
+    - Choghadiya
+    - Chandra Balam
+    - Tara Balam
+    """
+    # Build datetime string with time (midnight start)
+    date_start = f"{date_str}T00:00:00+00:00"
 
-    if not rashi or not nakshatra:
-        return []
+    # Step 1: Get user's nakshatra and rasi
+    kundli = get_kundali(date_start, location)
+    if not kundli:
+        raise ValueError("Failed to fetch Kundli")
 
-    # 🌙 Chandra Balam
-    cb_data = get_chandra_balam(datetime_str, current_location, rashi)
-    valid_cb_windows = []
-    for period in cb_data["data"]["chandra_bala"]:
-        rashi_names = [r["name"] for r in period["rasis"]]
-        if rashi in rashi_names:
-            valid_cb_windows.append({
-                "start": datetime.fromisoformat(period["start"]),
-                "end": datetime.fromisoformat(period["end"])
+    nakshatra = kundli["nakshatra"]
+    rasi = kundli["chandra_rasi"]
+
+    # Step 2: Fetch individual scores
+    choghadiya_periods = get_choghadiya(date_start, location)
+    chandra = get_chandra_balam(date_start, location, rasi)
+    tara = get_tara_balam(date_start, location, nakshatra)
+
+    final_muhurtas = []
+
+    if not chandra["is_favorable"] or not tara["is_favorable"]:
+        return []  # No overlapping good period
+
+    chandra_end = parse_iso_datetime(chandra["until"])
+    tara_end = parse_iso_datetime(tara["valid_until"])
+
+    # Final check range is the intersection window of both
+    favorable_window_end = min(chandra_end, tara_end)
+
+    # Step 3: Filter choghadiya within favorable windows
+    for muhurta in choghadiya_periods:
+        muhurta_start = parse_iso_datetime(muhurta["start"])
+        muhurta_end = parse_iso_datetime(muhurta["end"])
+
+        if muhurta_start < favorable_window_end:
+            end_time = min(muhurta_end, favorable_window_end)
+
+            final_muhurtas.append({
+                "start": muhurta_start.isoformat(),
+                "end": end_time.isoformat(),
+                "name": muhurta["name"],
+                "vela": muhurta["vela"],
+                "is_day": muhurta["is_day"]
             })
 
-    # ✨ Tara Balam
-    tb_data = get_tara_balam(datetime_str, current_location, nakshatra) 
-    valid_tb_windows = []
-    for period in tb_data["data"]["tara_bala"]:
-        nakshatra_names = [n["name"] for n in period["nakshatras"]]
-        if nakshatra in nakshatra_names and period["type"].lower() in ["good", "very good"]:
-            valid_tb_windows.append({
-                "start": datetime.fromisoformat(period["start"]),
-                "end": datetime.fromisoformat(period["end"])
-            })
-
-    # ⏳ Intersect time windows
-    good_combined_windows = []
-    for cb_win in valid_cb_windows:
-        for tb_win in valid_tb_windows:
-            overlap = parse_time_range_overlap(cb_win, tb_win)
-            if overlap:
-                good_combined_windows.append(overlap)
-
-    if not good_combined_windows:
-        return []
-
-    # 🕰️ Choghadiya
-    choghadiya_data = get_choghadiya(datetime_str, current_location)
-    choghadiya_list = choghadiya_data.get("data", {}).get("choghadiya", [])
-
-    final_muhurta_list = []
-
-    for muhurta in choghadiya_list:
-        start_dt = datetime.fromisoformat(muhurta["start"])
-        end_dt = datetime.fromisoformat(muhurta["end"])
-
-        if muhurta["muhurta"]["name"] not in ["Shubh", "Labh", "Amrit", "Chal"]:
-            continue
-
-        for win in good_combined_windows:
-            if start_dt >= win["start"] and end_dt <= win["end"]:
-                final_muhurta_list.append({
-                    "start": start_dt.strftime("%I:%M %p"),
-                    "end": end_dt.strftime("%I:%M %p"),
-                    "type": "Auspicious",
-                    "choghadiya": muhurta["muhurta"]["name"]
-                })
-
-    return final_muhurta_list
+    return final_muhurtas
