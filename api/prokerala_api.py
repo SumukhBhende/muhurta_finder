@@ -1,7 +1,6 @@
 import os
 import time
 import requests
-from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -53,131 +52,124 @@ def make_api_call(endpoint, params):
         "Authorization": f"Bearer {token}"
     }
     url = f"{BASE_URL}{endpoint}"
+
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
     return response.json()
 
-# 🧠 Kundli Data (includes moon sign and nakshatra)
+# 🧠 Kundli Data (Moon sign & Nakshatra)
 def get_kundali(datetime_str, coordinates):
-    params = {
-        "ayanamsa": 1,
-        "datetime": datetime_str,  # use raw string
-        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
-        "la": "en"
-    }
+    try:
+        params = {
+            "ayanamsa": 1,
+            "datetime": datetime_str,
+            "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
+            "la": "en"
+        }
 
-    data = make_api_call("/astrology/kundli/basic", params)
-    
-    if not data or "data" not in data:
+        data = make_api_call("/astrology/kundli/basic", params)
+        kundli_data = data.get("data", {})
+
+        return {
+            "nakshatra": kundli_data.get("nakshatra_details", {}).get("nakshatra", {}).get("name"),
+            "chandra_rasi": kundli_data.get("chandra_rasi", {}).get("name")
+        }
+
+    except Exception as e:
+        print(f"🚫 Failed to fetch Kundli: {e}")
         return None
-
-    kundli_data = data["data"]
-    
-    nakshatra_name = (
-        kundli_data.get("nakshatra_details", {})
-        .get("nakshatra", {})
-        .get("name")
-    )
-
-    chandra_rasi_name = (
-        kundli_data.get("chandra_rasi", {})
-        .get("name")
-    )
-
-    return {
-        "nakshatra": nakshatra_name,
-        "chandra_rasi": chandra_rasi_name
-    }
 
 # 🌙 Chandra Balam
 def get_chandra_balam(datetime_str, coordinates, target_rasi):
-    params = {
-        "ayanamsa": 1,
-        "datetime": datetime_str,
-        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
-        "la": "en"
-    }
+    try:
+        params = {
+            "ayanamsa": 1,
+            "datetime": datetime_str,
+            "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
+            "la": "en"
+        }
 
-    data = make_api_call("/astrology/chandra-bala", params)
+        data = make_api_call("/astrology/chandra-bala", params)
+        details = data.get("data", {})
 
-    if not data or "data" not in data:
+        for period in details.get("chandraBala", []):
+            rasi = period.get("rasi", {}).get("name")
+            if rasi == target_rasi and rasi in details.get("favorableRasi", []):
+                return {
+                    "is_favorable": True,
+                    "until": period.get("end")
+                }
+
+        return {
+            "is_favorable": False,
+            "until": None
+        }
+
+    except Exception as e:
+        print(f"🚫 Failed to fetch Chandra Balam: {e}")
         return None
-
-    favorable_rasis = data["data"].get("favorableRasi", [])
-    chandra_bala_periods = data["data"].get("chandraBala", [])
-
-    for period in chandra_bala_periods:
-        rasi = period.get("rasi", {}).get("name")
-        end_time = period.get("end")
-        if rasi == target_rasi and rasi in favorable_rasis:
-            return {
-                "is_favorable": True,
-                "until": end_time
-            }
-
-    return {
-        "is_favorable": False,
-        "until": None
-    }
 
 # ✨ Tara Balam
 def get_tara_balam(datetime_str, coordinates, target_nakshatra):
-    params = {
-        "ayanamsa": 1,
-        "datetime": datetime_str,
-        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
-        "la": "en"
-    }
+    try:
+        params = {
+            "ayanamsa": 1,
+            "datetime": datetime_str,
+            "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
+            "la": "en"
+        }
 
-    data = make_api_call("/astrology/tara-bala", params)
+        data = make_api_call("/astrology/tara-bala", params)
+        details = data.get("data", {})
 
-    if not data or "data" not in data:
+        for period in details.get("tara_bala", []):
+            for nak in period.get("nakshatras", []):
+                if nak.get("name") == target_nakshatra:
+                    return {
+                        "is_favorable": period.get("type") in ["Good", "Very Good"],
+                        "valid_until": period.get("end")
+                    }
+
+        return {
+            "is_favorable": False,
+            "valid_until": None
+        }
+
+    except Exception as e:
+        print(f"🚫 Failed to fetch Tara Balam: {e}")
         return None
-
-    tara_periods = data["data"].get("tara_bala", [])
-
-    for period in tara_periods:
-        for nak in period.get("nakshatras", []):
-            if nak.get("name") == target_nakshatra:
-                return {
-                    "is_favorable": period.get("type") in ["Good", "Very Good"],
-                    "valid_until": period.get("end")
-                }
-
-    return {
-        "is_favorable": False,
-        "valid_until": None
-    }
 
 # 🕰️ Choghadiya
 def get_choghadiya(datetime_str, coordinates):
-    params = {
-        "ayanamsa": 1,
-        "datetime": datetime_str,
-        "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
-        "la": "en"
-    }
+    try:
+        params = {
+            "ayanamsa": 1,
+            "datetime": datetime_str,
+            "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
+            "la": "en"
+        }
 
-    data = make_api_call("/astrology/choghadiya", params)
+        data = make_api_call("/astrology/choghadiya", params)
+        muhurats = data.get("data", {}).get("muhurat", [])
 
-    if not data or "data" not in data:
-        return []
-
-    favorable_types = {"Good", "Most Auspicious"}
-    favorable_periods = []
-
-    for muhurat in data["data"].get("muhurat", []):
-        if muhurat.get("type") in favorable_types:
-            favorable_periods.append({
+        favorable_types = {"Good", "Most Auspicious"}
+        favorable_periods = [
+            {
                 "name": muhurat.get("name"),
                 "start": muhurat.get("start"),
                 "end": muhurat.get("end"),
                 "vela": muhurat.get("vela"),
                 "is_day": muhurat.get("is_day")
-            })
+            }
+            for muhurat in muhurats if muhurat.get("type") in favorable_types
+        ]
 
-    return favorable_periods
+        return favorable_periods
 
-# 🚫 Stub for DigiPin (should be handled in utils)
+    except Exception as e:
+        print(f"🚫 Failed to fetch Choghadiya: {e}")
+        return []
+
+# 📍 DigiPin Stub
 def get_location_coordinates(digipin):
     raise NotImplementedError("Use utils/digipin_utils.py to decode DigiPin.")
