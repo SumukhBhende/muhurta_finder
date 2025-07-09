@@ -63,7 +63,7 @@ def get_rashi_nakshatra_from_birth(dob, tob, digipin):
         return None, None
 
     try:
-        data = response.json()["data"]["planetaryPositions"]
+        data = response.json().get("data", {}).get("planetaryPositions", [])
         for planet in data:
             if planet["planet"]["name"] == "Moon":
                 rashi = planet["rasi"]["name"]
@@ -73,6 +73,7 @@ def get_rashi_nakshatra_from_birth(dob, tob, digipin):
     except Exception as e:
         print("Parsing Error:", e)
         return None, None
+
 
 # ------------------------------------------
 # Get Choghadiya for a date and coordinates
@@ -102,30 +103,39 @@ def get_choghadiya(date_str, latitude, longitude, timezone="Asia/Kolkata"):
     return [slot for slot in data if slot["type"] in good_types]
 
 def get_daily_moon_data(date_str, latitude, longitude, timezone="Asia/Kolkata"):
-    """
-    Fetches the Moon Rashi and Nakshatra for the full day using Panchang API.
-    """
     access_token = get_access_token()
     if not access_token:
         return None, None
 
     headers = {"Authorization": f"Bearer {access_token}"}
+
+    # Construct proper datetime string with time and timezone offset
+    local_tz = pytz.timezone(timezone)
+    dt = datetime.strptime(date_str, "%Y-%m-%d")
+    dt_local = local_tz.localize(dt.replace(hour=5, minute=0))  # default 05:00 AM IST
+    iso_datetime = dt_local.isoformat()
+
     params = {
-        "date": date_str,
+        "ayanamsa": 1,
+        "datetime": iso_datetime,
         "coordinates": f"{latitude},{longitude}",
         "timezone": timezone
     }
 
     url = f"{API_BASE_URL}/astrology/panchang"
     response = requests.get(url, headers=headers, params=params)
+
+    print("🌀 Panchang Request URL:", response.url)
+
     if not response.ok:
         print("⚠️ Panchang API failed:", response.status_code, response.text)
         return None, None
 
-    data = response.json().get("data", {})
     try:
+        data = response.json()["data"]
         moon_rashi = data["rasi"]["moon"]["name"]
         nakshatra = data["nakshatra"]["nakshatra"]["name"]
         return moon_rashi, nakshatra
-    except:
+    except Exception as e:
+        print("❌ Panchang Parsing Error:", e)
         return None, None
