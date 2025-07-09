@@ -74,3 +74,39 @@ def get_rashi_nakshatra_from_birth(dob, tob, place):
         print("⚠️ API Error:", response.status_code, response.text)
 
     return None, None
+
+
+def get_choghadiya(date_str, latitude, longitude, timezone="Asia/Kolkata"):
+    """
+    Fetches Choghadiya slots for a given date & location.
+    date_str: 'YYYY-MM-DD'
+    Returns a list of dicts: [{start, end, type}, ...]
+    """
+    access_token = get_access_token()
+    if not access_token:
+        return []
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {
+        "date": date_str,
+        "coordinates": f"{latitude},{longitude}",
+        "timezone": timezone,
+        "language": "en"
+    }
+    url = f"{API_BASE_URL}/astrology/choghadiya"
+    resp = requests.get(url, headers=headers, params=params)
+    if resp.status_code != 200:
+        print("⚠️ Choghadiya API failed:", resp.status_code, resp.text)
+        return []
+
+    data = resp.json().get("data", [])
+    # Filter only the auspicious types
+    good_types = {"Labh", "Shubh", "Amrit", "Chal"}
+    return [
+        {
+            "start": slot["start"],
+            "end": slot["end"],
+            "type": slot["type"]
+        }
+        for slot in data if slot["type"] in good_types
+    ]
