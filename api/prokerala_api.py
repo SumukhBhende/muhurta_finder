@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -8,35 +9,44 @@ load_dotenv()
 CLIENT_ID = os.getenv("PROKERALA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("PROKERALA_CLIENT_SECRET")
 
-AUTH_URL = "https://api.prokerala.com/token"
+if not CLIENT_ID or not CLIENT_SECRET:
+    raise ValueError("❌ PROKERALA_CLIENT_ID or PROKERALA_CLIENT_SECRET not set in .env")
+
 BASE_URL = "https://api.prokerala.com/v2"
 
-_token_cache = {
-    "token": None,
+_token_data = {
+    "access_token": None,
     "expires_at": 0
 }
 
+# 🔑 Token Generator
 def get_access_token():
-    if _token_cache["token"] and _token_cache["expires_at"] > time.time():
-        return _token_cache["token"]
+    global _token_data
 
-    data = {
+    if _token_data["access_token"] and time.time() < _token_data["expires_at"]:
+        return _token_data["access_token"]
+
+    url = "https://api.prokerala.com/token"
+    payload = {
         "grant_type": "client_credentials",
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET
     }
+
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    response = requests.post(AUTH_URL, data=data, headers=headers)
-    response.raise_for_status()
-    token_data = response.json()
+    resp = requests.post(url, data=payload, headers=headers)
+    resp.raise_for_status()
+    data = resp.json()
 
-    _token_cache["token"] = token_data["access_token"]
-    _token_cache["expires_at"] = time.time() + token_data["expires_in"] - 10
-    return _token_cache["token"]
+    _token_data["access_token"] = data["access_token"]
+    _token_data["expires_at"] = time.time() + data["expires_in"] - 30  # buffer
 
+    return _token_data["access_token"]
+
+# 📡 Generic API Caller
 def make_api_call(endpoint, params):
     token = get_access_token()
     headers = {
@@ -47,7 +57,7 @@ def make_api_call(endpoint, params):
     response.raise_for_status()
     return response.json()
 
-# 🔮 Get Kundli (used to extract Rashi/Nakshatra from birth info)
+# 🧠 Kundli Data (includes moon sign and nakshatra)
 def get_kundli_data(datetime_str, coordinates):
     params = {
         "ayanamsa": 1,
@@ -84,37 +94,20 @@ def get_choghadiya(datetime_str, coordinates):
     }
     return make_api_call("/astrology/choghadiya", params)
 
+# 🌙 Extract Rashi & Nakshatra (wrapper around kundli API)
 def get_rashi_nakshatra(birth_datetime, coordinates):
-    url = "https://api.prokerala.com/v2/astrology/kundli"
+    dt_utc = birth_datetime.isoformat() + "+00:00"
+    kundli_data = get_kundli_data(dt_utc, coordinates)
 
-    dt_utc = birth_datetime.isoformat() + "+00:00"  # or use .astimezone(timezone.utc).isoformat()
-    lat = coordinates["latitude"]
-    lon = coordinates["longitude"]
-
-    params = {
-        "ayanamsa": 1,
-        "coordinates": f"{lat},{lon}",
-        "datetime": dt_utc,
-    }
-
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}"
-    }
-
-    resp = requests.get(url, headers=headers, params=params)
-    resp.raise_for_status()
-    data = resp.json()
-
-    # Extract Moon sign (Rashi) and Nakshatra
-    rashi = data["data"]["kundli"]["moon"]["rasi"]["name"]
-    nakshatra = data["data"]["kundli"]["moon"]["nakshatra"]["name"]
+    moon_data = kundli_data["data"]["kundli"]["moon"]
+    rashi = moon_data["rasi"]["name"]
+    nakshatra = moon_data["nakshatra"]["name"]
 
     return {
         "rashi": rashi,
         "nakshatra": nakshatra
     }
 
-
-# 📍 DigiPin decoding (if you’re doing it via API instead of utils)
+# 🚫 Stub for DigiPin (should be handled in utils)
 def get_location_coordinates(digipin):
-    raise NotImplementedError("Use utils/digipin_utils.py to decode DigiPin using CEPT system.")
+    raise NotImplementedError("Use utils/digipin_utils.py to decode DigiPin.")
