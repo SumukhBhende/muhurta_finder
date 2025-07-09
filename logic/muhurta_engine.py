@@ -1,4 +1,3 @@
-# muhurta_engine.py
 from datetime import datetime, timedelta
 from api.prokerala_api import (
     get_choghadiya,

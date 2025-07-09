@@ -1,14 +1,14 @@
 import streamlit as st
 from datetime import datetime
-from logic.muhurta_engine import get_muhurtas
+from logic.muhurta_engine import get_favorable_muhurtas
 from utils.digipin_utils import get_coordinates_from_digipin
-from api.prokerala_api import get_rashi_nakshatra
+from api.prokerala_api import get_kundali
 
 
 st.set_page_config(page_title="Muhurta Finder", page_icon="🌙")
 st.title("🌟 Auspicious Muhurta Finder")
 
-# Utility to clean/standardize digipin
+# --- Utilities ---
 def normalize_digipin(code: str) -> str:
     return code.replace("-", "").replace(" ", "").strip().upper()
 
@@ -16,6 +16,7 @@ def format_digipin(code: str) -> str:
     code = normalize_digipin(code)
     return f"{code[:3]}-{code[3:6]}-{code[6:]}" if len(code) == 10 else code
 
+# --- Location Input ---
 st.markdown("---")
 st.subheader("📍 Enter Your Current Location")
 
@@ -23,13 +24,14 @@ digipin = st.text_input("📌 Enter DigiPin (location code)", max_chars=15)
 normalized_digipin = normalize_digipin(digipin)
 
 if digipin and len(normalized_digipin) != 10:
-    st.error("❌ Please enter a valid 10-character DigiPin (with or without hyphens, e.g. 4K9MCM52K7 or 4K9-MCM-52K7).")
+    st.error("❌ Please enter a valid 10-character DigiPin.")
     st.stop()
 
 coordinates = get_coordinates_from_digipin(normalized_digipin) if digipin else None
 if coordinates:
     st.success(f"📌 Location: {format_digipin(digipin)} → {coordinates['latitude']}, {coordinates['longitude']}")
 
+# --- Birth Info Input ---
 st.markdown("---")
 st.subheader("🪔 Enter Birth Details")
 
@@ -76,9 +78,9 @@ elif option == "Directly Enter Rashi & Nakshatra":
         "Moola", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha",
         "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
     ])
-
     st.success("✅ Rashi and Nakshatra recorded successfully.")
 
+# --- Trigger Logic ---
 st.markdown("---")
 
 if st.button("🔍 Find Muhurtas"):
@@ -86,11 +88,11 @@ if st.button("🔍 Find Muhurtas"):
         st.error("⚠️ Please enter a valid current location DigiPin.")
         st.stop()
 
-    # Step 1: Get rashi & nakshatra if birth data was used
+    # Determine rashi & nakshatra
     if birth_datetime and birth_coordinates:
         try:
-            birth_info = get_rashi_nakshatra(birth_datetime, birth_coordinates)
-            user_rashi = birth_info["rashi"]
+            birth_info = get_kundali(birth_datetime.isoformat(), birth_coordinates)
+            user_rashi = birth_info["chandra_rasi"]
             user_nakshatra = birth_info["nakshatra"]
         except Exception as e:
             st.error(f"❌ Could not determine Rashi & Nakshatra from birth info: {e}")
@@ -102,12 +104,26 @@ if st.button("🔍 Find Muhurtas"):
         st.error("❌ Rashi & Nakshatra not provided.")
         st.stop()
 
-    with st.spinner("Calculating best Muhurtas..."):
-        results = get_muhurtas(
-            current_location=coordinates,
-            birth_datetime=birth_datetime,
-            birth_location=birth_coordinates,
-            rashi=user_rashi,
-            nakshatra=user_nakshatra
-        )
+    with st.spinner("🧠 Calculating best Muhurtas..."):
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        try:
+            muhurta_blocks = get_favorable_muhurtas(
+                date_str=today,
+                location=coordinates
+            )
+        except Exception as e:
+            st.error(f"🚫 Failed to fetch Muhurtas: {e}")
+            st.stop()
 
+    if not muhurta_blocks:
+        st.warning("😞 No favorable Muhurtas found today based on all 3 criteria.")
+    else:
+        st.success(f"🌟 Found {len(muhurta_blocks)} favorable Muhurtas!")
+        for muhurta in muhurta_blocks:
+            st.markdown(f"""
+            ✅ **{muhurta['name']}**  
+            ⏰ {muhurta['start']} → {muhurta['end']}  
+            🕰️ Vela: *{muhurta['vela']}*  
+            🌞 Period: {"Day" if muhurta['is_day'] else "Night"}  
+            ---
+            """)
