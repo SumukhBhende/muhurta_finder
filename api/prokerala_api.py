@@ -69,7 +69,7 @@ def get_kundali(datetime_str, coordinates):
         "la": "en"
     }
 
-    data = make_api_call("/v2/astrology/kundli/basic", params)
+    data = make_api_call("/astrology/kundli/basic", params)
     
     if not data or "data" not in data:
         return None
@@ -103,7 +103,7 @@ def get_chandra_balam(datetime_str, coordinates, target_rasi):
         "la": "en"
     }
 
-    data = make_api_call("/v2/astrology/chandra-bala", params)
+    data = make_api_call("/astrology/chandra-bala", params)
 
     if not data or "data" not in data:
         return None
@@ -136,7 +136,7 @@ def get_tara_balam(datetime_str, coordinates, target_nakshatra):
         "la": "en"
     }
 
-    data = make_api_call("/v2/astrology/tara-bala", params)
+    data = make_api_call("/astrology/tara-bala", params)
 
     if not data or "data" not in data:
         return None
@@ -167,7 +167,7 @@ def get_choghadiya(datetime_str, coordinates):
         "la": "en"
     }
 
-    data = make_api_call("/v2/astrology/choghadiya", params)
+    data = make_api_call("/astrology/choghadiya", params)
 
     if not data or "data" not in data:
         return []
