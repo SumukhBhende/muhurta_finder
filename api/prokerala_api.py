@@ -1,90 +1,95 @@
 import os
 import requests
+from datetime import datetime
 from dotenv import load_dotenv
 from utils.digipin_utils import get_coordinates_from_digipin
 
 load_dotenv()
 
-# Load API credentials
+# Load API credentials from .env file
 CLIENT_ID = os.getenv("PROKERALA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("PROKERALA_CLIENT_SECRET")
+BASE_URL = "https://api.prokerala.com/v2/astrology/"
 
-# Token URL
-TOKEN_URL = "https://api.prokerala.com/token"
-
+# Get access token
 def get_access_token():
-    response = requests.post(
-        TOKEN_URL,
-        data={"grant_type": "client_credentials"},
-        auth=(CLIENT_ID, CLIENT_SECRET)
-    )
-    response.raise_for_status()
-    return response.json()["access_token"]
+    auth_url = "https://api.prokerala.com/token"
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+    }
+    resp = requests.post(auth_url, data=data)
+    resp.raise_for_status()
+    return resp.json()["access_token"]
 
 ACCESS_TOKEN = get_access_token()
-HEADERS = {
-    "Authorization": f"Bearer {ACCESS_TOKEN}"
-}
+HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
-def get_location_coordinates(digipin):
-    return get_coordinates_from_digipin(digipin)
+# Get coordinates from DigiPin (via local decoder)
+def get_location_coordinates(digipin_code):
+    return get_coordinates_from_digipin(digipin_code)
 
-def get_panchang(lat, lon, datetime, ayanamsa=1, lang="en"):
-    url = "https://api.prokerala.com/v2/astrology/panchang"
-    params = {
-        "ayanamsa": ayanamsa,
-        "coordinates": f"{lat},{lon}",
-        "datetime": datetime,
-        "la": lang
+# Panchang API
+def get_panchang(datetime_obj, latitude, longitude, timezone_offset="+05:30"):
+    url = BASE_URL + "panchang"
+    payload = {
+        "datetime": datetime_obj.isoformat(),
+        "latitude": latitude,
+        "longitude": longitude,
+        "timezone": timezone_offset,
     }
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = requests.get(url, params=payload, headers=HEADERS)
     response.raise_for_status()
     return response.json()
 
-def get_detailed_panchang(lat, lon, datetime, ayanamsa=1, lang="en"):
-    url = "https://api.prokerala.com/v2/astrology/panchang/advanced"
-    params = {
-        "ayanamsa": ayanamsa,
-        "coordinates": f"{lat},{lon}",
-        "datetime": datetime,
-        "la": lang
+# Detailed Panchang API
+def get_detailed_panchang(datetime_obj, latitude, longitude, timezone_offset="+05:30"):
+    url = BASE_URL + "advanced-panchang"
+    payload = {
+        "datetime": datetime_obj.isoformat(),
+        "latitude": latitude,
+        "longitude": longitude,
+        "timezone": timezone_offset,
     }
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = requests.get(url, params=payload, headers=HEADERS)
     response.raise_for_status()
     return response.json()
 
-def get_choghadiya(lat, lon, datetime, ayanamsa=1, lang="en"):
-    url = "https://api.prokerala.com/v2/astrology/choghadiya"
-    params = {
-        "ayanamsa": ayanamsa,
-        "coordinates": f"{lat},{lon}",
-        "datetime": datetime,
-        "la": lang
+# Choghadiya API
+def get_choghadiya(date_obj, latitude, longitude):
+    url = BASE_URL + "choghadiya"
+    payload = {
+        "date": date_obj.strftime("%Y-%m-%d"),
+        "latitude": latitude,
+        "longitude": longitude,
     }
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = requests.get(url, params=payload, headers=HEADERS)
     response.raise_for_status()
     return response.json()
 
-def get_chandra_bala(lat, lon, datetime, ayanamsa=1, lang="en"):
-    url = "https://api.prokerala.com/v2/astrology/chandra-bala"
-    params = {
-        "ayanamsa": ayanamsa,
-        "coordinates": f"{lat},{lon}",
-        "datetime": datetime,
-        "la": lang
-    }
-    response = requests.get(url, headers=HEADERS, params=params)
+# Chandra Bala API
+def get_chandra_bala(date_obj):
+    url = BASE_URL + "chandra-bala"
+    payload = {"date": date_obj.strftime("%Y-%m-%d")}
+    response = requests.get(url, params=payload, headers=HEADERS)
     response.raise_for_status()
     return response.json()
 
-def get_tara_bala(lat, lon, datetime, ayanamsa=1, lang="en"):
-    url = "https://api.prokerala.com/v2/astrology/tara-bala"
-    params = {
-        "ayanamsa": ayanamsa,
-        "coordinates": f"{lat},{lon}",
-        "datetime": datetime,
-        "la": lang
-    }
-    response = requests.get(url, headers=HEADERS, params=params)
+# Tara Bala API
+def get_tara_bala(date_obj):
+    url = BASE_URL + "tara-bala"
+    payload = {"date": date_obj.strftime("%Y-%m-%d")}
+    response = requests.get(url, params=payload, headers=HEADERS)
     response.raise_for_status()
     return response.json()
+
+# Decode Rashi and Nakshatra from location + birth date/time
+def decode_digipin(coords: dict, birth_datetime: datetime):
+    lat = coords["latitude"]
+    lon = coords["longitude"]
+    data = get_detailed_panchang(birth_datetime, lat, lon)
+    rashi = data["data"]["nakshatra"]["rasi"]["name"]
+    nakshatra = data["data"]["nakshatra"]["name"]
+    print(f"🌙 Moon Sign (Rashi): {rashi}, ⭐ Nakshatra: {nakshatra}")
+    return rashi, nakshatra
