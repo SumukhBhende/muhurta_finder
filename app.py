@@ -1,9 +1,8 @@
 import streamlit as st
-from datetime import datetime
-from logic.muhurta_engine import get_favorable_muhurtas
+from datetime import datetime, timedelta
+from logic.muhurta_engine import get_good_muhurta_slots
 from utils.digipin_utils import get_coordinates_from_digipin
 from api.prokerala_api import get_kundali
-
 
 st.set_page_config(page_title="Muhurta Finder", page_icon="🌙")
 st.title("🌟 Auspicious Muhurta Finder")
@@ -15,9 +14,6 @@ def normalize_digipin(code: str) -> str:
 def format_digipin(code: str) -> str:
     code = normalize_digipin(code)
     return f"{code[:3]}-{code[3:6]}-{code[6:]}" if len(code) == 10 else code
-
-
-
 
 # --- Rashi to Nakshatra Mapping ---
 RASHI_TO_NAKSHATRAS = {
@@ -87,11 +83,23 @@ if option == "Date, Time & Place of Birth":
 
 elif option == "Directly Enter Rashi & Nakshatra":
     rashi = st.selectbox("🌙 Your Chandra Rashi", list(RASHI_TO_NAKSHATRAS.keys()))
-    
     if rashi:
         valid_nakshatras = RASHI_TO_NAKSHATRAS[rashi]
         nakshatra = st.selectbox("✨ Your Janma Nakshatra", valid_nakshatras)
 
+# --- Date Range Input ---
+st.markdown("---")
+st.subheader("📆 Select Date Range to Find Muhurtas")
+
+col1, col2 = st.columns(2)
+with col1:
+    start_date = st.date_input("🔸 Start Date", value=datetime.today())
+with col2:
+    end_date = st.date_input("🔸 End Date", value=datetime.today() + timedelta(days=1))
+
+if start_date > end_date:
+    st.error("🚫 Start date cannot be after end date.")
+    st.stop()
 
 # --- Trigger Logic ---
 st.markdown("---")
@@ -118,23 +126,25 @@ if st.button("🔍 Find Muhurtas"):
         st.stop()
 
     with st.spinner("🧠 Calculating best Muhurtas..."):
-        today = datetime.utcnow().strftime("%Y-%m-%d")
         try:
-            muhurta_blocks = get_favorable_muhurtas(
-                date_str=today,
-                location=coordinates
+            muhurta_blocks = get_good_muhurta_slots(
+                start_date_str=start_date.strftime("%Y-%m-%d"),
+                end_date_str=end_date.strftime("%Y-%m-%d"),
+                coordinates=coordinates,
+                rasi=user_rashi,
+                nakshatra=user_nakshatra
             )
         except Exception as e:
             st.error(f"🚫 Failed to fetch Muhurtas: {e}")
             st.stop()
 
     if not muhurta_blocks:
-        st.warning("😞 No favorable Muhurtas found today based on all 3 criteria.")
+        st.warning("😞 No favorable Muhurtas found in the selected date range.")
     else:
         st.success(f"🌟 Found {len(muhurta_blocks)} favorable Muhurtas!")
         for muhurta in muhurta_blocks:
             st.markdown(f"""
-            ✅ **{muhurta['name']}**  
+            ✅ **{muhurta['label']}**  
             ⏰ {muhurta['start']} → {muhurta['end']}  
             🕰️ Vela: *{muhurta['vela']}*  
             🌞 Period: {"Day" if muhurta['is_day'] else "Night"}  

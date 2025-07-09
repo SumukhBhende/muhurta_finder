@@ -1,64 +1,71 @@
 from datetime import datetime, timedelta
-from api.prokerala_api import (
-    get_choghadiya,
-    get_chandra_balam,
-    get_tara_balam,
-    get_kundali,
-)
+from api.prokerala_api import get_chandra_balam, get_tara_balam, get_choghadiya
 
 
-def parse_iso_datetime(dt_str):
-    return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+def parse_iso(dt_str):
+    try:
+        return datetime.fromisoformat(dt_str)
+    except Exception:
+        return None
 
 
-def get_favorable_muhurtas(date_str, location):
+def get_good_muhurta_slots(start_date_str, end_date_str, coordinates, rasi, nakshatra):
     """
-    Main function to determine favorable muhurta blocks based on:
-    - Choghadiya
-    - Chandra Balam
-    - Tara Balam
+    Returns a list of muhurta periods where Chandra Balam, Tara Balam, and Choghadiya are all favorable.
+
+    Parameters:
+        - start_date_str (str): format "YYYY-MM-DD"
+        - end_date_str (str): format "YYYY-MM-DD"
+        - coordinates (dict): {"latitude": float, "longitude": float}
+        - rasi (str): User's moon sign
+        - nakshatra (str): User's birth star
+
+    Returns:
+        - List of dicts with start, end, vela, label, is_day
     """
-    # Build datetime string with time (midnight start)
-    date_start = f"{date_str}T00:00:00+00:00"
+    start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
 
-    # Step 1: Get user's nakshatra and rasi
-    kundli = get_kundali(date_start, location)
-    if not kundli:
-        raise ValueError("Failed to fetch Kundli")
+    current_date = start_date
+    results = []
 
-    nakshatra = kundli["nakshatra"]
-    rasi = kundli["chandra_rasi"]
+    while current_date <= end_date:
+        datetime_str = current_date.strftime("%Y-%m-%dT00:00:00")
 
-    # Step 2: Fetch individual scores
-    choghadiya_periods = get_choghadiya(date_start, location)
-    chandra = get_chandra_balam(date_start, location, rasi)
-    tara = get_tara_balam(date_start, location, nakshatra)
+        # Fetch data
+        chandra = get_chandra_balam(datetime_str, coordinates, rasi)
+        tara = get_tara_balam(datetime_str, coordinates, nakshatra)
+        choghadiya_periods = get_choghadiya(datetime_str, coordinates)
 
-    final_muhurtas = []
+        if not (chandra and chandra.get("is_favorable") and
+                tara and tara.get("is_favorable")):
+            current_date += timedelta(days=1)
+            continue
 
-    if not chandra["is_favorable"] or not tara["is_favorable"]:
-        return []  # No overlapping good period
+        chandra_start = parse_iso(datetime_str)
+        chandra_end = parse_iso(chandra.get("until"))
+        tara_start = parse_iso(datetime_str)
+        tara_end = parse_iso(tara.get("valid_until"))
 
-    chandra_end = parse_iso_datetime(chandra["until"])
-    tara_end = parse_iso_datetime(tara["valid_until"])
+        for muhurta in choghadiya_periods:
+            m_start = parse_iso(muhurta["start"])
+            m_end = parse_iso(muhurta["end"])
 
-    # Final check range is the intersection window of both
-    favorable_window_end = min(chandra_end, tara_end)
+            if not all([m_start, m_end, chandra_start, chandra_end, tara_start, tara_end]):
+                continue
 
-    # Step 3: Filter choghadiya within favorable windows
-    for muhurta in choghadiya_periods:
-        muhurta_start = parse_iso_datetime(muhurta["start"])
-        muhurta_end = parse_iso_datetime(muhurta["end"])
+            # Ensure Choghadiya fits within both Chandra & Tara Balam windows
+            if chandra_start <= m_start <= chandra_end and \
+               tara_start <= m_start <= tara_end and \
+               m_end <= chandra_end and m_end <= tara_end:
+                results.append({
+                    "start": muhurta["start"],
+                    "end": muhurta["end"],
+                    "vela": muhurta["vela"],
+                    "is_day": muhurta["is_day"],
+                    "label": muhurta["name"]
+                })
 
-        if muhurta_start < favorable_window_end:
-            end_time = min(muhurta_end, favorable_window_end)
+        current_date += timedelta(days=1)
 
-            final_muhurtas.append({
-                "start": muhurta_start.isoformat(),
-                "end": end_time.isoformat(),
-                "name": muhurta["name"],
-                "vela": muhurta["vela"],
-                "is_day": muhurta["is_day"]
-            })
-
-    return final_muhurtas
+    return results
