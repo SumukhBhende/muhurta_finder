@@ -187,20 +187,6 @@ def get_choghadiya(datetime_str, coordinates):
 
     return favorable_periods
 
-# 🌙 Extract Rashi & Nakshatra (wrapper around kundli API)
-def get_rashi_nakshatra(birth_datetime, coordinates):
-    dt_utc = birth_datetime.isoformat() + "+00:00"
-    kundli_data = get_kundli_data(dt_utc, coordinates)
-
-    moon_data = kundli_data["data"]["kundli"]["moon"]
-    rashi = moon_data["rasi"]["name"]
-    nakshatra = moon_data["nakshatra"]["name"]
-
-    return {
-        "rashi": rashi,
-        "nakshatra": nakshatra
-    }
-
 # 🚫 Stub for DigiPin (should be handled in utils)
 def get_location_coordinates(digipin):
     raise NotImplementedError("Use utils/digipin_utils.py to decode DigiPin.")
