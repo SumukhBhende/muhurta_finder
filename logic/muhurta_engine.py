@@ -64,17 +64,19 @@ def find_auspicious_muhurtas(user_rashi, user_nakshatra, days, latitude, longitu
         dt = today + timedelta(days=d)
         date_str = dt.strftime("%Y-%m-%d")
 
+        # Fetch actual Moon data
         moon_rashi, nak_today = get_daily_moon_data(date_str, latitude, longitude)
+
         if not moon_rashi or not nak_today:
             rows.append({
                 "Date": date_str,
                 "Start": "-",
                 "End": "-",
                 "Moon Rashi": "N/A",
-                "Chandrabalam": "Error",
+                "Chandrabalam": "API Error",
                 "Nakshatra": "N/A",
-                "Tarabalam": "Error",
-                "Choghadiya": "API Error"
+                "Tarabalam": "API Error",
+                "Choghadiya": "❌"
             })
             continue
 
@@ -109,3 +111,4 @@ def find_auspicious_muhurtas(user_rashi, user_nakshatra, days, latitude, longitu
             })
 
     return pd.DataFrame(rows)
+
