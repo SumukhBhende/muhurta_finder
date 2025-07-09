@@ -67,7 +67,7 @@ def get_kundali(datetime_str, coordinates):
             "la": "en"
         }
 
-        data = make_api_call("/astrology/kundli/basic", params)
+        data = make_api_call("/astrology/kundli", params)
         kundli_data = data.get("data", {})
 
         return {

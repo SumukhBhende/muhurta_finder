@@ -16,6 +16,25 @@ def format_digipin(code: str) -> str:
     code = normalize_digipin(code)
     return f"{code[:3]}-{code[3:6]}-{code[6:]}" if len(code) == 10 else code
 
+
+
+
+# --- Rashi to Nakshatra Mapping ---
+RASHI_TO_NAKSHATRAS = {
+    "Mesha": ["Ashwini", "Bharani", "Krittika"],
+    "Vrishabha": ["Krittika", "Rohini", "Mrigashirsha"],
+    "Mithuna": ["Mrigashirsha", "Ardra", "Punarvasu"],
+    "Karka": ["Punarvasu", "Pushya", "Ashlesha"],
+    "Simha": ["Magha", "Purva Phalguni", "Uttara Phalguni"],
+    "Kanya": ["Uttara Phalguni", "Hasta", "Chitra"],
+    "Tula": ["Chitra", "Swati", "Vishaka"],
+    "Vrischika": ["Vishaka", "Anuradha", "Jyeshta"],
+    "Dhanu": ["Moola", "Purva Ashadha", "Uttara Ashadha"],
+    "Makara": ["Uttara Ashadha", "Shravana", "Dhanishta"],
+    "Kumbha": ["Dhanishta", "Shatabhisha", "Purva Bhadrapada"],
+    "Meena": ["Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
+}
+
 # --- Location Input ---
 st.markdown("---")
 st.subheader("📍 Enter Your Current Location")
@@ -67,18 +86,12 @@ if option == "Date, Time & Place of Birth":
         st.success(f"🎯 Birth details recorded successfully.")
 
 elif option == "Directly Enter Rashi & Nakshatra":
-    rashi = st.selectbox("🌙 Your Chandra Rashi", [
-        "Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya", 
-        "Tula", "Vrischika", "Dhanu", "Makara", "Kumbha", "Meena"
-    ])
-    nakshatra = st.selectbox("✨ Your Janma Nakshatra", [
-        "Ashwini", "Bharani", "Krithika", "Rohini", "Mrigashirsha", "Ardra",
-        "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
-        "Hasta", "Chitra", "Swati", "Vishaka", "Anuradha", "Jyeshta",
-        "Moola", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha",
-        "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
-    ])
-    st.success("✅ Rashi and Nakshatra recorded successfully.")
+    rashi = st.selectbox("🌙 Your Chandra Rashi", list(RASHI_TO_NAKSHATRAS.keys()))
+    
+    if rashi:
+        valid_nakshatras = RASHI_TO_NAKSHATRAS[rashi]
+        nakshatra = st.selectbox("✨ Your Janma Nakshatra", valid_nakshatras)
+
 
 # --- Trigger Logic ---
 st.markdown("---")
