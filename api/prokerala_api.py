@@ -1,141 +1,83 @@
 import requests
 import os
-from dotenv import load_dotenv
-from datetime import datetime
-import pytz
-from utils.digipin_utils import get_coordinates_from_digipin
+from urllib.parse import quote_plus
 
-# Load API credentials from .env
-load_dotenv()
-API_BASE_URL = "https://api.prokerala.com/v2"
-CLIENT_ID = os.getenv("PROKERALA_API_KEY")
-CLIENT_SECRET = os.getenv("PROKERALA_API_SECRET")
+PROKERALA_API_KEY = os.getenv("PROKERALA_API_KEY")
+TOKEN_URL = "https://api.prokerala.com/token"
+API_BASE_URL = "https://api.prokerala.com/v2/astrology"
 
-# ------------------------------------------
-# Auth
-# ------------------------------------------
+# Get access token once
 def get_access_token():
-    url = "https://api.prokerala.com/token"
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    client_id = os.getenv("PROKERALA_CLIENT_ID")
+    client_secret = os.getenv("PROKERALA_CLIENT_SECRET")
     data = {
         "grant_type": "client_credentials",
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
+        "client_id": client_id,
+        "client_secret": client_secret
     }
-    response = requests.post(url, headers=headers, data=data)
-    if response.ok:
-        return response.json()["access_token"]
-    else:
-        print("⚠️ Token Error:", response.status_code, response.text)
-        return None
+    resp = requests.post(TOKEN_URL, data=data)
+    resp.raise_for_status()
+    return resp.json()["access_token"]
 
-# ------------------------------------------
-# Get Rashi & Nakshatra from Birth Data + DigiPin
-# ------------------------------------------
-def get_rashi_nakshatra_from_birth(dob, tob, digipin):
-    coords = get_coordinates_from_digipin(digipin)
-    if coords is None:
-        return None, None
+ACCESS_TOKEN = get_access_token()
+HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
-    dt = datetime.combine(dob, tob)
-    timezone = pytz.timezone("Asia/Kolkata")
-    dt_iso = timezone.localize(dt).isoformat()
+def fetch_api(endpoint, params):
+    url = f"{API_BASE_URL}/{endpoint}"
+    encoded_params = "&".join(f"{k}={quote_plus(str(v))}" for k, v in params.items())
+    full_url = f"{url}?{encoded_params}"
+    print("🌀 Request:", full_url)
+    resp = requests.get(full_url, headers=HEADERS)
+    resp.raise_for_status()
+    return resp.json()
 
-    access_token = get_access_token()
-    if not access_token:
-        return None, None
-
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-
-    params = {
-        "ayanamsa": 1,
-        "coordinates": f"{coords['latitude']},{coords['longitude']}",
-        "datetime": dt_iso
-    }
-
-    url = f"{API_BASE_URL}/astrology/kundli"
-    response = requests.get(url, headers=headers, params=params)
-
-    if not response.ok:
-        print("⚠️ Kundli API Error:", response.status_code, response.text)
-        return None, None
-
+def decode_digipin(digipin):
     try:
-        data = response.json().get("data", {}).get("planetaryPositions", [])
-        for planet in data:
-            if planet["planet"]["name"] == "Moon":
-                rashi = planet["rasi"]["name"]
-                nakshatra = planet["nakshatra"]["name"]
-                return rashi, nakshatra
-        return None, None
-    except Exception as e:
-        print("Parsing Error:", e)
+        url = f"https://api.digipin.in/v1/code/{digipin}"
+        resp = requests.get(url)
+        resp.raise_for_status()
+        data = resp.json()
+        return float(data['location']['lat']), float(data['location']['lon'])
+    except:
         return None, None
 
-
-# ------------------------------------------
-# Get Choghadiya for a date and coordinates
-# ------------------------------------------
-def get_choghadiya(date_str, latitude, longitude, timezone="Asia/Kolkata"):
-    access_token = get_access_token()
-    if not access_token:
-        return []
-
-    url = f"{API_BASE_URL}/astrology/choghadiya"
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    params = {
-        "date": date_str,
-        "coordinates": f"{latitude},{longitude}",
-        "timezone": timezone
-    }
-
-    response = requests.get(url, headers=headers, params=params)
-    if not response.ok:
-        print("⚠️ Choghadiya Error:", response.status_code, response.text)
-        return []
-
-    data = response.json().get("data", [])
-    good_types = {"Labh", "Shubh", "Amrit", "Chal"}
-    return [slot for slot in data if slot["type"] in good_types]
-
-def get_daily_moon_data(date_str, latitude, longitude, timezone="Asia/Kolkata"):
-    access_token = get_access_token()
-    if not access_token:
-        return None, None
-
-    headers = {"Authorization": f"Bearer {access_token}"}
-
-    # Construct proper datetime string with time and timezone offset
-    local_tz = pytz.timezone(timezone)
-    dt = datetime.strptime(date_str, "%Y-%m-%d")
-    dt_local = local_tz.localize(dt.replace(hour=5, minute=0))  # default 05:00 AM IST
-    iso_datetime = dt_local.isoformat()
-
-    params = {
+# Wrapper functions for different APIs
+def get_panchang(datetime_str, lat, lon):
+    return fetch_api("panchang", {
         "ayanamsa": 1,
-        "datetime": iso_datetime,
-        "coordinates": f"{latitude},{longitude}",
-        "timezone": timezone
-    }
+        "datetime": datetime_str,
+        "coordinates": f"{lat},{lon}",
+        "timezone": "Asia/Kolkata"
+    })
 
-    url = f"{API_BASE_URL}/astrology/panchang"
-    response = requests.get(url, headers=headers, params=params)
+def get_detailed_panchang(datetime_str, lat, lon):
+    return fetch_api("panchang/advanced", {
+        "ayanamsa": 1,
+        "datetime": datetime_str,
+        "coordinates": f"{lat},{lon}",
+        "timezone": "Asia/Kolkata"
+    })
 
-    print("🌀 Panchang Request URL:", response.url)
+def get_choghadiya(datetime_str, lat, lon):
+    return fetch_api("choghadiya", {
+        "ayanamsa": 1,
+        "datetime": datetime_str,
+        "coordinates": f"{lat},{lon}",
+        "timezone": "Asia/Kolkata"
+    })
 
-    if not response.ok:
-        print("⚠️ Panchang API failed:", response.status_code, response.text)
-        return None, None
+def get_chandra_bala(datetime_str, lat, lon):
+    return fetch_api("chandra-bala", {
+        "ayanamsa": 1,
+        "datetime": datetime_str,
+        "coordinates": f"{lat},{lon}",
+        "timezone": "Asia/Kolkata"
+    })
 
-    try:
-        data = response.json()["data"]
-        moon_rashi = data["rasi"]["moon"]["name"]
-        nakshatra = data["nakshatra"]["nakshatra"]["name"]
-        return moon_rashi, nakshatra
-    except Exception as e:
-        print("❌ Panchang Parsing Error:", e)
-        return None, None
+def get_tara_bala(datetime_str, lat, lon):
+    return fetch_api("tara-bala", {
+        "ayanamsa": 1,
+        "datetime": datetime_str,
+        "coordinates": f"{lat},{lon}",
+        "timezone": "Asia/Kolkata"
+    })

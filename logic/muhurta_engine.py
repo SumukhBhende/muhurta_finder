@@ -1,114 +1,62 @@
-import pandas as pd
-from datetime import datetime, timedelta
-from api.prokerala_api import get_choghadiya
-from api.prokerala_api import get_daily_moon_data
+from datetime import timedelta, datetime
+from prokerala_api import get_panchang, get_detailed_panchang, get_choghadiya, get_chandra_bala, get_tara_bala
 
+def get_muhurtas(start_date, end_date, time_str, lat, lon, birth_nakshatra, birth_rashi):
+    current_date = start_date
+    results = {}
 
-# --------------------------
-# Static Lists
-# --------------------------
-RAASHIS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-           "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+    while current_date <= end_date:
+        dt_str = f"{current_date}T{time_str}:00+05:30"
 
-NAKSHATRAS = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
-              "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni",
-              "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha",
-              "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana",
-              "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
+        try:
+            # Fetch all required data
+            panchang = get_panchang(dt_str, lat, lon)
+            detailed = get_detailed_panchang(dt_str, lat, lon)
+            choghadiya = get_choghadiya(dt_str, lat, lon)
+            chandra = get_chandra_bala(dt_str, lat, lon)
+            tara = get_tara_bala(dt_str, lat, lon)
 
-# --------------------------
-# Chandrabalam Logic
-# --------------------------
-def is_chandrabalam_good(user_rashi, today_rashi):
-    try:
-        i = RAASHIS.index(user_rashi)
-        j = RAASHIS.index(today_rashi)
-        dist = (j - i) % 12 + 1
-        return dist in [1, 3, 6, 7, 10, 11]
-    except ValueError:
-        return False
+            info = []
 
-# --------------------------
-# Tarabalam Logic
-# --------------------------
-def get_tarabalam(user_nakshatra, today_nakshatra):
-    try:
-        start = NAKSHATRAS.index(user_nakshatra)
-        current = NAKSHATRAS.index(today_nakshatra)
-        position = (current - start) % 27 + 1
+            # Check Chandra Bala
+            good_rasis = []
+            for period in chandra['data']['chandra_bala']:
+                for r in period['rasis']:
+                    good_rasis.append(r['name'])
+            if birth_rashi in good_rasis:
+                info.append("🌕 Chandra Bala: ✔️")
 
-        cycle = ["Janma", "Sampat", "Vipat", "Kshema", "Pratyak", "Sadhana", "Naidhana", "Mitra", "Param Mitra"]
-        tara = cycle[(position - 1) % 9]
+            # Check Tara Bala
+            good_nakshatras = []
+            for period in tara['data']['tara_bala']:
+                for nk in period['nakshatras']:
+                    good_nakshatras.append(nk['name'])
+            if birth_nakshatra in good_nakshatras:
+                info.append("✨ Tara Bala: ✔️")
 
-        if tara in ["Sampat", "Param Mitra"]:
-            quality = "Very Good"
-        elif tara in ["Kshema", "Sadhana", "Mitra"]:
-            quality = "Good"
-        elif tara in ["Janma", "Vipat", "Pratyak"]:
-            quality = "Not Good"
-        else:
-            quality = "Totally Bad"
+            # Check Auspicious Choghadiya
+            good_chogs = []
+            for muhurta in choghadiya['data']['muhurat']:
+                if muhurta['type'] in ['Good', 'Most Auspicious']:
+                    start = muhurta['start'][11:16]
+                    end = muhurta['end'][11:16]
+                    good_chogs.append(f"{muhurta['name']} ({start} - {end})")
+            if good_chogs:
+                info.append("🕒 Choghadiya: " + ", ".join(good_chogs))
 
-        return tara, quality
-    except ValueError:
-        return None, "Unknown"
+            # Add detailed panchanga auspicions
+            aus_list = []
+            for period in detailed['data'].get('auspicious_period', []):
+                for p in period['period']:
+                    aus_list.append(f"{period['name']} ({p['start'][11:16]} - {p['end'][11:16]})")
+            if aus_list:
+                info.append("🔱 Muhurtas: " + ", ".join(aus_list))
 
-# --------------------------
-# Main Engine
-# --------------------------
-def find_auspicious_muhurtas(user_rashi, user_nakshatra, days, latitude, longitude):
-    today = datetime.now()
-    rows = []
+            results[str(current_date)] = "\n".join(info)
 
-    for d in range(days):
-        dt = today + timedelta(days=d)
-        date_str = dt.strftime("%Y-%m-%d")
+        except Exception as e:
+            results[str(current_date)] = f"❌ Error: {e}"
 
-        # Fetch actual Moon data
-        moon_rashi, nak_today = get_daily_moon_data(date_str, latitude, longitude)
+        current_date += timedelta(days=1)
 
-        if not moon_rashi or not nak_today:
-            rows.append({
-                "Date": date_str,
-                "Start": "-",
-                "End": "-",
-                "Moon Rashi": "N/A",
-                "Chandrabalam": "API Error",
-                "Nakshatra": "N/A",
-                "Tarabalam": "API Error",
-                "Choghadiya": "❌"
-            })
-            continue
-
-        # Evaluate Chandrabalam and Tarabalam
-        chandra_good = is_chandrabalam_good(user_rashi, moon_rashi)
-        tara_type, tara_quality = get_tarabalam(user_nakshatra, nak_today)
-        tara_good = tara_quality in ["Good", "Very Good"]
-
-        if chandra_good and tara_good:
-            choghadiya_slots = get_choghadiya(date_str, latitude, longitude)
-            for slot in choghadiya_slots:
-                rows.append({
-                    "Date": date_str,
-                    "Start": slot["start"],
-                    "End": slot["end"],
-                    "Moon Rashi": moon_rashi,
-                    "Chandrabalam": "✅ Good",
-                    "Nakshatra": nak_today,
-                    "Tarabalam": f"{tara_type} ({tara_quality})",
-                    "Choghadiya": slot["type"]
-                })
-        else:
-            rows.append({
-                "Date": date_str,
-                "Start": "-",
-                "End": "-",
-                "Moon Rashi": moon_rashi,
-                "Chandrabalam": "✅ Good" if chandra_good else "❌ Bad",
-                "Nakshatra": nak_today,
-                "Tarabalam": f"{tara_type} ({tara_quality})",
-                "Choghadiya": "❌ Not auspicious"
-            })
-
-    return pd.DataFrame(rows)
-
+    return results
