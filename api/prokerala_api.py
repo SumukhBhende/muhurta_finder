@@ -84,6 +84,37 @@ def get_choghadiya(datetime_str, coordinates):
     }
     return make_api_call("/astrology/choghadiya", params)
 
+def get_rashi_nakshatra(birth_datetime, coordinates):
+    url = "https://api.prokerala.com/v2/astrology/kundli"
+
+    dt_utc = birth_datetime.isoformat() + "+00:00"  # or use .astimezone(timezone.utc).isoformat()
+    lat = coordinates["latitude"]
+    lon = coordinates["longitude"]
+
+    params = {
+        "ayanamsa": 1,
+        "coordinates": f"{lat},{lon}",
+        "datetime": dt_utc,
+    }
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}"
+    }
+
+    resp = requests.get(url, headers=headers, params=params)
+    resp.raise_for_status()
+    data = resp.json()
+
+    # Extract Moon sign (Rashi) and Nakshatra
+    rashi = data["data"]["kundli"]["moon"]["rasi"]["name"]
+    nakshatra = data["data"]["kundli"]["moon"]["nakshatra"]["name"]
+
+    return {
+        "rashi": rashi,
+        "nakshatra": nakshatra
+    }
+
+
 # 📍 DigiPin decoding (if you’re doing it via API instead of utils)
 def get_location_coordinates(digipin):
     raise NotImplementedError("Use utils/digipin_utils.py to decode DigiPin using CEPT system.")
