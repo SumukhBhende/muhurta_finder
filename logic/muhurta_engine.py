@@ -32,7 +32,7 @@ def get_muhurtas(current_location, birth_datetime=None, birth_location=None, ras
         return []
 
     # 🌙 Chandra Balam
-    cb_data = get_chandra_balam(datetime_str, current_location, user_rashi)
+    cb_data = get_chandra_balam(datetime_str, current_location, rashi)
     valid_cb_windows = []
     for period in cb_data["data"]["chandra_bala"]:
         rashi_names = [r["name"] for r in period["rasis"]]
@@ -43,7 +43,7 @@ def get_muhurtas(current_location, birth_datetime=None, birth_location=None, ras
             })
 
     # ✨ Tara Balam
-    tb_data = get_tara_balam(datetime_str, current_location, user_nakshatra)
+    tb_data = get_tara_balam(datetime_str, current_location, nakshatra)
     valid_tb_windows = []
     for period in tb_data["data"]["tara_bala"]:
         nakshatra_names = [n["name"] for n in period["nakshatras"]]
