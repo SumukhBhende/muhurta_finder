@@ -1,6 +1,8 @@
 import pandas as pd
 from datetime import datetime, timedelta
 from api.prokerala_api import get_choghadiya
+from api.prokerala_api import get_daily_moon_data
+
 
 # --------------------------
 # Static Lists
@@ -62,9 +64,19 @@ def find_auspicious_muhurtas(user_rashi, user_nakshatra, days, latitude, longitu
         dt = today + timedelta(days=d)
         date_str = dt.strftime("%Y-%m-%d")
 
-        # Dummy moon rashi and nakshatra for demo purposes
-        moon_rashi = RAASHIS[(RAASHIS.index(user_rashi) + d) % 12]
-        nak_today = NAKSHATRAS[(NAKSHATRAS.index(user_nakshatra) + d) % 27]
+        moon_rashi, nak_today = get_daily_moon_data(date_str, latitude, longitude)
+        if not moon_rashi or not nak_today:
+            rows.append({
+                "Date": date_str,
+                "Start": "-",
+                "End": "-",
+                "Moon Rashi": "N/A",
+                "Chandrabalam": "Error",
+                "Nakshatra": "N/A",
+                "Tarabalam": "Error",
+                "Choghadiya": "API Error"
+            })
+            continue
 
         # Evaluate Chandrabalam and Tarabalam
         chandra_good = is_chandrabalam_good(user_rashi, moon_rashi)

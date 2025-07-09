@@ -100,3 +100,32 @@ def get_choghadiya(date_str, latitude, longitude, timezone="Asia/Kolkata"):
     data = response.json().get("data", [])
     good_types = {"Labh", "Shubh", "Amrit", "Chal"}
     return [slot for slot in data if slot["type"] in good_types]
+
+def get_daily_moon_data(date_str, latitude, longitude, timezone="Asia/Kolkata"):
+    """
+    Fetches the Moon Rashi and Nakshatra for the full day using Panchang API.
+    """
+    access_token = get_access_token()
+    if not access_token:
+        return None, None
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {
+        "date": date_str,
+        "coordinates": f"{latitude},{longitude}",
+        "timezone": timezone
+    }
+
+    url = f"{API_BASE_URL}/astrology/panchang"
+    response = requests.get(url, headers=headers, params=params)
+    if not response.ok:
+        print("⚠️ Panchang API failed:", response.status_code, response.text)
+        return None, None
+
+    data = response.json().get("data", {})
+    try:
+        moon_rashi = data["rasi"]["moon"]["name"]
+        nakshatra = data["nakshatra"]["nakshatra"]["name"]
+        return moon_rashi, nakshatra
+    except:
+        return None, None
