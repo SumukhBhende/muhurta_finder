@@ -1,79 +1,61 @@
 import streamlit as st
-from datetime import datetime, date
-from api.prokerala_api import decode_digipin, get_location_coordinates
+from datetime import datetime
+from api.prokerala_api import get_location_coordinates
 from logic.muhurta_engine import get_muhurtas
 
-st.set_page_config(page_title="Muhurta Finder", layout="wide")
+st.set_page_config(page_title="🕉️ Muhurta Finder", layout="centered")
+st.title("🕉️ Muhurta Finder")
 
-st.title("🔱 Muhurta Finder based on Birth Nakshatra and Rashi")
+st.markdown("""
+This app finds **auspicious muhurta timings** using your location (**DigiPin**) and date/time, 
+based on **Choghadiya**, **Chandra Balam**, and **Tara Balam** using authentic Panchang data.
+""")
 
-with st.sidebar:
-    st.header("📍 Location Input")
-    input_method = st.radio("Choose location input method:", ["Manual Entry", "DigiPin"])
+# Input Fields
+digipin = st.text_input("📍 Enter DigiPin (6-character location code)", max_chars=6)
 
-    if input_method == "Manual Entry":
-        latitude = st.number_input("Latitude", format="%.6f")
-        longitude = st.number_input("Longitude", format="%.6f")
+date = st.date_input("📅 Select Date", value=datetime.now().date())
+time = st.time_input("🕒 Select Time", value=datetime.now().time())
+
+if st.button("🔍 Find Muhurta"):
+    if not digipin or len(digipin.strip()) != 6:
+        st.error("❌ Please enter a valid 6-character DigiPin.")
     else:
-        digipin_code = st.text_input("Enter DigiPin code")
-        if digipin_code:
-            latitude, longitude = decode_digipin(digipin_code)
-            if latitude and longitude:
-                st.success(f"DigiPin decoded: {latitude}, {longitude}")
-            else:
-                st.error("Failed to decode DigiPin")
+        datetime_input = datetime.combine(date, time).isoformat()
+        st.info(f"Calculating Muhurta for {digipin.upper()} on {datetime_input}...")
+
+        result = get_muhurtas(digipin, datetime_input)
+
+        if "error" in result:
+            st.error(f"❌ {result['error']}")
         else:
-            latitude = longitude = None
+            # Location
+            st.subheader("📌 Location Coordinates")
+            st.write(result["location"])
 
-    st.markdown("---")
+            # Panchang
+            st.subheader("📖 Basic Panchang")
+            st.json(result["panchang"])
 
-    st.header("🧬 Birth Details")
-    col1, col2 = st.columns(2)
-    with col1:
-        rashi = st.selectbox("Chandra Rashi", [
-            "Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya",
-            "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena"
-        ])
-    with col2:
-        nakshatra = st.selectbox("Nakshatra", [
-            "Ashwini", "Bharani", "Krithika", "Rohini", "Mrigashirsha", "Ardra", "Punarvasu",
-            "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta",
-            "Chitra", "Swati", "Vishaka", "Anuradha", "Jyeshta", "Moola", "Purva Ashadha",
-            "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada",
-            "Uttara Bhadrapada", "Revati"
-        ])
+            # Detailed Panchang
+            st.subheader("📜 Detailed Panchang")
+            st.json(result["detailed_panchang"])
 
-    st.markdown("---")
+            # Choghadiya
+            st.subheader("🕒 Choghadiya Muhurtas")
+            for muhurta in result["choghadiya"]["muhurat"]:
+                st.write(f"**{muhurta['name']}** ({muhurta['type']}) — {muhurta['start']} to {muhurta['end']}")
 
-    st.header("📆 Muhurta Range")
-    today = date.today()
-    start_date = st.date_input("Start Date", value=today)
-    end_date = st.date_input("End Date", value=today)
-    time_input = st.text_input("Preferred Time (hh:mm)", placeholder="hh:mm", value="05:00")
+            # Chandra Bala
+            st.subheader("🌙 Chandra Bala (Favorable Moon Signs)")
+            for period in result["chandra_bala"]["chandra_bala"]:
+                st.write(f"From **{period['start']}** to **{period['end']}**:")
+                signs = [rasi["name"] for rasi in period["rasis"]]
+                st.write(", ".join(signs))
 
-    # Ensure valid date range
-    if end_date < start_date:
-        st.error("End date must be after start date")
-
-if st.button("🔍 Find Auspicious Muhurtas"):
-    if latitude is None or longitude is None:
-        st.error("Please provide valid coordinates.")
-    else:
-        try:
-            st.info("Fetching data from Prokerala API...")
-            good_times = get_muhurtas(
-                start_date, end_date,
-                time_input,
-                latitude, longitude,
-                nakshatra, rashi
-            )
-
-            if good_times:
-                st.success("✅ Auspicious Muhurtas Found:")
-                for dt, info in good_times.items():
-                    st.markdown(f"### {dt}")
-                    st.write(info)
-            else:
-                st.warning("⚠️ No auspicious muhurta found in the given range.")
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
+            # Tara Bala
+            st.subheader("🌟 Tara Bala (Favorable Nakshatras)")
+            for bala in result["tara_bala"]["tara_bala"]:
+                st.write(f"**{bala['name']}** ({bala['type']}) — {bala['start']} to {bala['end']}")
+                nakshatras = [n["name"] for n in bala["nakshatras"]]
+                st.write("Nakshatras:", ", ".join(nakshatras))
