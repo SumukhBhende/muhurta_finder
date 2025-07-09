@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from prokerala_api import get_panchang, get_detailed_panchang, get_choghadiya, get_chandra_bala, get_tara_bala
+from api.prokerala_api import get_panchang, get_detailed_panchang, get_choghadiya, get_chandra_bala, get_tara_bala
 
 def get_muhurtas(start_date, end_date, time_str, lat, lon, birth_nakshatra, birth_rashi):
     current_date = start_date

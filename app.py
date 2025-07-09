@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime, date
-from prokerala_api import decode_digipin, get_location_coordinates
-from muhurta_engine import get_muhurtas
+from api.prokerala_api import decode_digipin, get_location_coordinates
+from logic.muhurta_engine import get_muhurtas
 
 st.set_page_config(page_title="Muhurta Finder", layout="wide")
 
