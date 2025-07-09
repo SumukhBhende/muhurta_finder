@@ -3,7 +3,6 @@ import time
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
-import urllib.parse  # required for encoding datetime
 
 load_dotenv()
 
@@ -60,11 +59,9 @@ def make_api_call(endpoint, params):
 
 # 🧠 Kundli Data (includes moon sign and nakshatra)
 def get_kundali(datetime_str, coordinates):
-    encoded_datetime = urllib.parse.quote(datetime_str)
-
     params = {
-        "ayanamsa": 1,  # Lahiri
-        "datetime": encoded_datetime,
+        "ayanamsa": 1,
+        "datetime": datetime_str,  # use raw string
         "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
         "la": "en"
     }
@@ -94,11 +91,9 @@ def get_kundali(datetime_str, coordinates):
 
 # 🌙 Chandra Balam
 def get_chandra_balam(datetime_str, coordinates, target_rasi):
-    encoded_datetime = urllib.parse.quote(datetime_str)
-
     params = {
-        "ayanamsa": 1,  # Lahiri
-        "datetime": encoded_datetime,
+        "ayanamsa": 1,
+        "datetime": datetime_str,
         "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
         "la": "en"
     }
@@ -117,7 +112,7 @@ def get_chandra_balam(datetime_str, coordinates, target_rasi):
         if rasi == target_rasi and rasi in favorable_rasis:
             return {
                 "is_favorable": True,
-                "until": end_time  # ISO 8601 format
+                "until": end_time
             }
 
     return {
@@ -127,11 +122,9 @@ def get_chandra_balam(datetime_str, coordinates, target_rasi):
 
 # ✨ Tara Balam
 def get_tara_balam(datetime_str, coordinates, target_nakshatra):
-    encoded_datetime = urllib.parse.quote(datetime_str)
-
     params = {
-        "ayanamsa": 1,  # Lahiri
-        "datetime": encoded_datetime,
+        "ayanamsa": 1,
+        "datetime": datetime_str,
         "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
         "la": "en"
     }
@@ -148,7 +141,7 @@ def get_tara_balam(datetime_str, coordinates, target_nakshatra):
             if nak.get("name") == target_nakshatra:
                 return {
                     "is_favorable": period.get("type") in ["Good", "Very Good"],
-                    "valid_until": period.get("end")  # ISO 8601 format
+                    "valid_until": period.get("end")
                 }
 
     return {
@@ -158,11 +151,9 @@ def get_tara_balam(datetime_str, coordinates, target_nakshatra):
 
 # 🕰️ Choghadiya
 def get_choghadiya(datetime_str, coordinates):
-    encoded_datetime = urllib.parse.quote(datetime_str)
-
     params = {
         "ayanamsa": 1,
-        "datetime": encoded_datetime,
+        "datetime": datetime_str,
         "coordinates": f"{coordinates['latitude']},{coordinates['longitude']}",
         "la": "en"
     }
