@@ -2,6 +2,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 from api.prokerala_api import get_choghadiya
 
+# --------------------------
+# Static Lists
+# --------------------------
 RAASHIS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
            "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
 
@@ -11,6 +14,9 @@ NAKSHATRAS = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
               "Jyeshtha", "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana",
               "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"]
 
+# --------------------------
+# Chandrabalam Logic
+# --------------------------
 def is_chandrabalam_good(user_rashi, today_rashi):
     try:
         i = RAASHIS.index(user_rashi)
@@ -20,13 +26,18 @@ def is_chandrabalam_good(user_rashi, today_rashi):
     except ValueError:
         return False
 
+# --------------------------
+# Tarabalam Logic
+# --------------------------
 def get_tarabalam(user_nakshatra, today_nakshatra):
     try:
         start = NAKSHATRAS.index(user_nakshatra)
         current = NAKSHATRAS.index(today_nakshatra)
         position = (current - start) % 27 + 1
+
         cycle = ["Janma", "Sampat", "Vipat", "Kshema", "Pratyak", "Sadhana", "Naidhana", "Mitra", "Param Mitra"]
         tara = cycle[(position - 1) % 9]
+
         if tara in ["Sampat", "Param Mitra"]:
             quality = "Very Good"
         elif tara in ["Kshema", "Sadhana", "Mitra"]:
@@ -35,39 +46,43 @@ def get_tarabalam(user_nakshatra, today_nakshatra):
             quality = "Not Good"
         else:
             quality = "Totally Bad"
+
         return tara, quality
     except ValueError:
         return None, "Unknown"
 
-def find_auspicious_muhurtas(user_rashi, user_nakshatra, days=3):
+# --------------------------
+# Main Engine
+# --------------------------
+def find_auspicious_muhurtas(user_rashi, user_nakshatra, days, latitude, longitude):
     today = datetime.now()
     rows = []
-    coords = {"latitude": 15.591, "longitude": 73.815}
 
     for d in range(days):
         dt = today + timedelta(days=d)
         date_str = dt.strftime("%Y-%m-%d")
 
-        # Dummy rotating moon/nakshatra – replace with Prokerala API later
+        # Dummy moon rashi and nakshatra for demo purposes
         moon_rashi = RAASHIS[(RAASHIS.index(user_rashi) + d) % 12]
         nak_today = NAKSHATRAS[(NAKSHATRAS.index(user_nakshatra) + d) % 27]
 
+        # Evaluate Chandrabalam and Tarabalam
         chandra_good = is_chandrabalam_good(user_rashi, moon_rashi)
         tara_type, tara_quality = get_tarabalam(user_nakshatra, nak_today)
         tara_good = tara_quality in ["Good", "Very Good"]
 
         if chandra_good and tara_good:
-            slots = get_choghadiya(date_str, coords["latitude"], coords["longitude"])
-            for slot in slots:
+            choghadiya_slots = get_choghadiya(date_str, latitude, longitude)
+            for slot in choghadiya_slots:
                 rows.append({
                     "Date": date_str,
                     "Start": slot["start"],
                     "End": slot["end"],
                     "Moon Rashi": moon_rashi,
-                    "Chandrabalam": "Good",
+                    "Chandrabalam": "✅ Good",
                     "Nakshatra": nak_today,
-                    "Tarabalam": f"{tara_type} - {tara_quality}",
-                    "Choghadiya Type": slot["type"]
+                    "Tarabalam": f"{tara_type} ({tara_quality})",
+                    "Choghadiya": slot["type"]
                 })
         else:
             rows.append({
@@ -75,10 +90,10 @@ def find_auspicious_muhurtas(user_rashi, user_nakshatra, days=3):
                 "Start": "-",
                 "End": "-",
                 "Moon Rashi": moon_rashi,
-                "Chandrabalam": "Not Good" if not chandra_good else "Good",
+                "Chandrabalam": "✅ Good" if chandra_good else "❌ Bad",
                 "Nakshatra": nak_today,
-                "Tarabalam": f"{tara_type} - {tara_quality}",
-                "Choghadiya Type": "❌ Not Auspicious"
+                "Tarabalam": f"{tara_type} ({tara_quality})",
+                "Choghadiya": "❌ Not auspicious"
             })
 
     return pd.DataFrame(rows)

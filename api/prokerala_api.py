@@ -3,69 +3,100 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import pytz
+from utils.digipin_utils import get_coordinates_from_digipin
 
+# Load API credentials from .env
 load_dotenv()
-
 API_BASE_URL = "https://api.prokerala.com/v2"
-API_KEY = os.getenv("PROKERALA_API_KEY")
-API_SECRET = os.getenv("PROKERALA_API_SECRET")
+CLIENT_ID = os.getenv("PROKERALA_API_KEY")
+CLIENT_SECRET = os.getenv("PROKERALA_API_SECRET")
 
+# ------------------------------------------
+# Auth
+# ------------------------------------------
 def get_access_token():
     url = "https://api.prokerala.com/token"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     data = {
         "grant_type": "client_credentials",
-        "client_id": API_KEY,
-        "client_secret": API_SECRET
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET
     }
-    r = requests.post(url, headers=headers, data=data)
-    return r.json().get("access_token") if r.ok else None
+    response = requests.post(url, headers=headers, data=data)
+    if response.ok:
+        return response.json()["access_token"]
+    else:
+        print("⚠️ Token Error:", response.status_code, response.text)
+        return None
 
-def get_coordinates_from_place(place):
-    return {"latitude": 15.591, "longitude": 73.815}  # TODO: Use geocoding later
+# ------------------------------------------
+# Get Rashi & Nakshatra from Birth Data + DigiPin
+# ------------------------------------------
+def get_rashi_nakshatra_from_birth(dob, tob, digipin):
+    coords = get_coordinates_from_digipin(digipin)
+    if coords is None:
+        return None, None
 
-def get_rashi_nakshatra_from_birth(dob, tob, place):
-    coords = get_coordinates_from_place(place)
     dt = datetime.combine(dob, tob)
-    tz = pytz.timezone("Asia/Kolkata")
-    iso_dt = tz.localize(dt).isoformat()
+    timezone = pytz.timezone("Asia/Kolkata")
+    dt_iso = timezone.localize(dt).isoformat()
 
-    token = get_access_token()
-    if not token: return None, None
+    access_token = get_access_token()
+    if not access_token:
+        return None, None
 
-    url = f"{API_BASE_URL}/astrology/kundli"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
     params = {
         "ayanamsa": 1,
         "coordinates": f"{coords['latitude']},{coords['longitude']}",
-        "datetime": iso_dt
+        "datetime": dt_iso
     }
 
-    r = requests.get(url, headers=headers, params=params)
-    if not r.ok:
+    url = f"{API_BASE_URL}/astrology/kundli"
+    response = requests.get(url, headers=headers, params=params)
+
+    if not response.ok:
+        print("⚠️ Kundli API Error:", response.status_code, response.text)
         return None, None
 
-    data = r.json()
-    for planet in data["data"]["planetaryPositions"]:
-        if planet["planet"]["name"] == "Moon":
-            return planet["rasi"]["name"], planet["nakshatra"]["name"]
-    return None, None
+    try:
+        data = response.json()["data"]["planetaryPositions"]
+        for planet in data:
+            if planet["planet"]["name"] == "Moon":
+                rashi = planet["rasi"]["name"]
+                nakshatra = planet["nakshatra"]["name"]
+                return rashi, nakshatra
+        return None, None
+    except Exception as e:
+        print("Parsing Error:", e)
+        return None, None
 
+# ------------------------------------------
+# Get Choghadiya for a date and coordinates
+# ------------------------------------------
 def get_choghadiya(date_str, latitude, longitude, timezone="Asia/Kolkata"):
-    token = get_access_token()
-    if not token: return []
+    access_token = get_access_token()
+    if not access_token:
+        return []
 
     url = f"{API_BASE_URL}/astrology/choghadiya"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
     params = {
         "date": date_str,
         "coordinates": f"{latitude},{longitude}",
         "timezone": timezone
     }
 
-    r = requests.get(url, headers=headers, params=params)
-    if not r.ok: return []
+    response = requests.get(url, headers=headers, params=params)
+    if not response.ok:
+        print("⚠️ Choghadiya Error:", response.status_code, response.text)
+        return []
 
-    data = r.json().get("data", [])
-    good = {"Shubh", "Labh", "Amrit", "Chal"}
-    return [slot for slot in data if slot["type"] in good]
+    data = response.json().get("data", [])
+    good_types = {"Labh", "Shubh", "Amrit", "Chal"}
+    return [slot for slot in data if slot["type"] in good_types]
