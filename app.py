@@ -2,6 +2,8 @@ import streamlit as st
 from datetime import datetime
 from logic.muhurta_engine import get_muhurtas
 from utils.digipin_utils import get_coordinates_from_digipin
+from api.prokerala_api import get_rashi_nakshatra
+
 
 st.set_page_config(page_title="Muhurta Finder", page_icon="🌙")
 st.title("🌟 Auspicious Muhurta Finder")
@@ -84,25 +86,28 @@ if st.button("🔍 Find Muhurtas"):
         st.error("⚠️ Please enter a valid current location DigiPin.")
         st.stop()
 
+    # Step 1: Get rashi & nakshatra if birth data was used
+    if birth_datetime and birth_coordinates:
+        try:
+            birth_info = get_rashi_nakshatra(birth_datetime, birth_coordinates)
+            user_rashi = birth_info["rashi"]
+            user_nakshatra = birth_info["nakshatra"]
+        except Exception as e:
+            st.error(f"❌ Could not determine Rashi & Nakshatra from birth info: {e}")
+            st.stop()
+    elif rashi and nakshatra:
+        user_rashi = rashi
+        user_nakshatra = nakshatra
+    else:
+        st.error("❌ Rashi & Nakshatra not provided.")
+        st.stop()
+
     with st.spinner("Calculating best Muhurtas..."):
         results = get_muhurtas(
             current_location=coordinates,
             birth_datetime=birth_datetime,
             birth_location=birth_coordinates,
-            rashi=rashi,
-            nakshatra=nakshatra
+            rashi=user_rashi,
+            nakshatra=user_nakshatra
         )
-
-    if not results:
-        st.warning("No auspicious muhurta found for the given parameters.")
-    else:
-        st.success("🎉 Auspicious Muhurtas Found:")
-        for muhurta in results:
-            st.markdown(f"""
-            - 🕒 **Start**: `{muhurta['start']}`
-            - ⏳ **End**: `{muhurta['end']}`
-            - 🌟 **Type**: `{muhurta['type']}`
-            - 🔖 **Choghadiya**: `{muhurta['choghadiya']}`
-            ---
-            """)
 
