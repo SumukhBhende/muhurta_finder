@@ -94,20 +94,33 @@ def get_chandra_balam(datetime_str, coordinates, target_rasi):
 
         for period in details.get("chandraBala", []):
             rasi = period.get("rasi", {}).get("name")
-            if rasi == target_rasi and rasi in details.get("favorableRasi", []):
+            if rasi == target_rasi:
+                is_fav = rasi in details.get("favorableRasi", [])
                 return {
-                    "is_favorable": True,
-                    "until": period.get("end")
+                    "is_favorable": is_fav,
+                    "until": period.get("end") if is_fav else None,
+                    "next_favorable_from": period.get("start") if not is_fav and is_fav_rasi(rasi, details) else None
                 }
 
         return {
             "is_favorable": False,
-            "until": None
+            "until": None,
+            "next_favorable_from": get_next_favorable_chandra_bala(details, target_rasi)
         }
 
     except Exception as e:
         print(f"🚫 Failed to fetch Chandra Balam: {e}")
         return None
+
+def is_fav_rasi(rasi_name, data):
+    return rasi_name in data.get("favorableRasi", [])
+
+def get_next_favorable_chandra_bala(data, target_rasi):
+    for period in data.get("chandraBala", []):
+        rasi = period.get("rasi", {}).get("name")
+        if rasi == target_rasi and rasi in data.get("favorableRasi", []):
+            return period.get("start")
+    return None
 
 # ✨ Tara Balam
 def get_tara_balam(datetime_str, coordinates, target_nakshatra):
@@ -125,19 +138,30 @@ def get_tara_balam(datetime_str, coordinates, target_nakshatra):
         for period in details.get("tara_bala", []):
             for nak in period.get("nakshatras", []):
                 if nak.get("name") == target_nakshatra:
+                    is_fav = period.get("type") in ["Good", "Very Good"]
                     return {
-                        "is_favorable": period.get("type") in ["Good", "Very Good"],
-                        "valid_until": period.get("end")
+                        "is_favorable": is_fav,
+                        "valid_until": period.get("end") if is_fav else None,
+                        "next_favorable_from": None if is_fav else find_next_favorable_tara(details, target_nakshatra)
                     }
 
         return {
             "is_favorable": False,
-            "valid_until": None
+            "valid_until": None,
+            "next_favorable_from": find_next_favorable_tara(details, target_nakshatra)
         }
 
     except Exception as e:
         print(f"🚫 Failed to fetch Tara Balam: {e}")
         return None
+
+def find_next_favorable_tara(data, target_nakshatra):
+    for period in data.get("tara_bala", []):
+        if period.get("type") in ["Good", "Very Good"]:
+            for nak in period.get("nakshatras", []):
+                if nak.get("name") == target_nakshatra:
+                    return period.get("start")
+    return None
 
 # 🕰️ Choghadiya
 def get_choghadiya(datetime_str, coordinates):
