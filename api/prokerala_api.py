@@ -1,26 +1,36 @@
-import requests
 import os
-from urllib.parse import quote_plus
+import base64
+import requests
+from dotenv import load_dotenv
 
-PROKERALA_API_KEY = os.getenv("PROKERALA_API_KEY")
-TOKEN_URL = "https://api.prokerala.com/token"
-API_BASE_URL = "https://api.prokerala.com/v2/astrology"
+load_dotenv()
 
-# Get access token once
+PROKERALA_CLIENT_ID = os.getenv("PROKERALA_CLIENT_ID")
+PROKERALA_CLIENT_SECRET = os.getenv("PROKERALA_CLIENT_SECRET")
+
 def get_access_token():
-    client_id = os.getenv("PROKERALA_CLIENT_ID")
-    client_secret = os.getenv("PROKERALA_CLIENT_SECRET")
-    data = {
-        "grant_type": "client_credentials",
-        "client_id": client_id,
-        "client_secret": client_secret
+    if not PROKERALA_CLIENT_ID or not PROKERALA_CLIENT_SECRET:
+        raise ValueError("Client credentials not found in environment")
+
+    credentials = f"{PROKERALA_CLIENT_ID}:{PROKERALA_CLIENT_SECRET}"
+    encoded_credentials = base64.b64encode(credentials.encode()).decode()
+
+    headers = {
+        "Authorization": f"Basic {encoded_credentials}",
+        "Content-Type": "application/x-www-form-urlencoded",
     }
-    resp = requests.post(TOKEN_URL, data=data)
+
+    data = {
+        "grant_type": "client_credentials"
+    }
+
+    resp = requests.post("https://api.prokerala.com/token", headers=headers, data=data)
     resp.raise_for_status()
     return resp.json()["access_token"]
 
 ACCESS_TOKEN = get_access_token()
 HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+
 
 def fetch_api(endpoint, params):
     url = f"{API_BASE_URL}/{endpoint}"
