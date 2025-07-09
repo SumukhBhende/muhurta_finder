@@ -1,6 +1,5 @@
 import streamlit as st
 from datetime import datetime
-from api.prokerala_api import decode_digipin, get_location_coordinates
 from logic.muhurta_engine import get_muhurtas
 from utils.digipin_utils import get_coordinates_from_digipin
 
