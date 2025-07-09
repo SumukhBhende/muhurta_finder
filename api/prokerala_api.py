@@ -1,88 +1,75 @@
 import os
 import requests
 from datetime import datetime
+from dotenv import load_dotenv
 
-# Read API credentials from environment variables
+load_dotenv()
+
+BASE_URL = "https://api.prokerala.com/v2"
 CLIENT_ID = os.getenv("PROKERALA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("PROKERALA_CLIENT_SECRET")
 
-BASE_URL = "https://api.prokerala.com/v2"
-TOKEN_URL = f"{BASE_URL}/token"
-
 def get_access_token():
-    payload = {
+    url = f"{BASE_URL}/token"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    data = {
         "grant_type": "client_credentials",
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET
     }
-    resp = requests.post(TOKEN_URL, data=payload)
+    resp = requests.post(url, headers=headers, data=data)
     resp.raise_for_status()
     return resp.json()["access_token"]
 
 ACCESS_TOKEN = get_access_token()
 HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
-# Panchang (optional if needed)
-def get_panchang(date, latitude, longitude):
-    url = f"{BASE_URL}/astrology/panchang"
+def get_panchang(datetime_obj, lat, lon):
     params = {
-        "datetime": date.isoformat(),
-        "latitude": latitude,
-        "longitude": longitude
+        "datetime": datetime_obj.isoformat(),
+        "coordinates": f"{lat},{lon}",
+        "ayanamsa": 1,
+        "la": "en"
     }
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = requests.get(f"{BASE_URL}/astrology/panchang", headers=HEADERS, params=params)
     return response.json()
 
-# Nakshatra and Rashi calculation from birth details
-def get_detailed_panchang(date, latitude, longitude):
-    url = f"{BASE_URL}/astrology/panchang/detailed"
+def get_detailed_panchang(datetime_obj, lat, lon):
     params = {
-        "datetime": date.isoformat(),
-        "latitude": latitude,
-        "longitude": longitude
+        "datetime": datetime_obj.isoformat(),
+        "coordinates": f"{lat},{lon}",
+        "ayanamsa": 1,
+        "la": "en"
     }
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = requests.get(f"{BASE_URL}/astrology/panchang/advanced", headers=HEADERS, params=params)
     return response.json()
 
-# Choghadiya for a date/location
-def get_choghadiya(date, latitude, longitude):
-    url = f"{BASE_URL}/astrology/choghadiya"
+def get_choghadiya(datetime_obj, lat, lon):
     params = {
-        "datetime": date.isoformat(),
-        "latitude": latitude,
-        "longitude": longitude
+        "datetime": datetime_obj.isoformat(),
+        "coordinates": f"{lat},{lon}",
+        "ayanamsa": 1,
+        "la": "en"
     }
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = requests.get(f"{BASE_URL}/astrology/choghadiya", headers=HEADERS, params=params)
     return response.json()
 
-# Chandra Balam
-def get_chandra_bala(date, latitude, longitude):
-    url = f"{BASE_URL}/astrology/chandra-bala"
+def get_chandra_bala(datetime_obj, lat, lon):
     params = {
-        "datetime": date.isoformat(),
-        "latitude": latitude,
-        "longitude": longitude
+        "datetime": datetime_obj.isoformat(),
+        "coordinates": f"{lat},{lon}",
+        "ayanamsa": 1,
+        "la": "en"
     }
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = requests.get(f"{BASE_URL}/astrology/chandra-bala", headers=HEADERS, params=params)
     return response.json()
 
-# Tara Balam
-def get_tara_bala(date, latitude, longitude):
-    url = f"{BASE_URL}/astrology/tara-bala"
+def get_tara_bala(datetime_obj, lat, lon):
     params = {
-        "datetime": date.isoformat(),
-        "latitude": latitude,
-        "longitude": longitude
+        "datetime": datetime_obj.isoformat(),
+        "coordinates": f"{lat},{lon}",
+        "ayanamsa": 1,
+        "la": "en"
     }
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = requests.get(f"{BASE_URL}/astrology/tara-bala", headers=HEADERS, params=params)
     return response.json()
-
-# (DEPRECATED – local decoding used instead)
-# DigiPin decoding is done locally using digipin_utils.py
-def decode_digipin(code):
-    from utils.digipin_utils import get_coordinates_from_digipin
-    return get_coordinates_from_digipin(code)
-
-# For compatibility if needed
-def get_location_coordinates(digipin):
-    return decode_digipin(digipin)
