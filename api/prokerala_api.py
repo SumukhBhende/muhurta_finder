@@ -30,7 +30,7 @@ HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 # --- Delay helper ---
 def throttle():
-    time.sleep(1.5)  # 1500 milliseconds delay
+    time.sleep(5)  # 5000 milliseconds delay
 
 # --- Choghadiya ---
 def get_choghadiya(coordinates, datetime_str):
