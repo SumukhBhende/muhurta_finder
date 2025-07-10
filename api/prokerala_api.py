@@ -90,8 +90,4 @@ def get_kundali(datetime_iso, coordinates):
     rashi = data.get("chandra_rasi", {}).get("name")
     nakshatra = data.get("nakshatra", {}).get("name")
     pada = data.get("nakshatra", {}).get("pada")
-    return {
-        "chandra_rasi": rashi,
-        "nakshatra": nakshatra,
-        "pada": pada
-    }
+    return rashi,nakshatra,pada
