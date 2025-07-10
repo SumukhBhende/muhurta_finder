@@ -68,7 +68,7 @@ def get_choghadiya(coordinates, datetime_str):
     choghadiya_data = response.json()
 
     # Step 2: Fetch inauspicious periods
-    inauspicious_data = get_inauspicious_periods(datetime_str, coordinates)
+    inauspicious_data = get_inauspicious_periods(coordinates, datetime_str)
     inauspicious_periods = []
     for muhurta in inauspicious_data.get("data", {}).get("muhurat", []):
         for period in muhurta.get("period", []):
