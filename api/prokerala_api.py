@@ -33,7 +33,6 @@ def throttle():
     time.sleep(12)  # 5000 milliseconds delay
 
 # --- Choghadiya ---
-# --- Choghadiya (only good types) ---
 def get_choghadiya(coordinates, datetime_str):
     throttle()
 
