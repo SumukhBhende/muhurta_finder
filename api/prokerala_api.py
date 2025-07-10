@@ -1,5 +1,6 @@
 import requests
 import os
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
@@ -18,84 +19,79 @@ def get_access_token():
     data = {
         "grant_type": "client_credentials",
         "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
+        "client_secret": CLIENT_SECRET,
     }
-    response = requests.post(TOKEN_URL, data=data)
+    response = requests.post("https://api.prokerala.com/token", data=data)
     response.raise_for_status()
     return response.json()["access_token"]
 
-# Global token reuse (optional: implement auto-refresh logic later)
 ACCESS_TOKEN = get_access_token()
 HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
-# ----------------------------
-# 📌 Location Utilities
-# ----------------------------
-def get_coordinates_str(coordinates_dict):
-    return f"{coordinates_dict['latitude']},{coordinates_dict['longitude']}"
+# --- Delay helper ---
+def throttle():
+    time.sleep(1.5)  # 1500 milliseconds delay
 
-# ----------------------------
-# 🌙 Choghadiya API
-# ----------------------------
-def get_choghadiya(coords, dt_iso):
-    params = {
-        "ayanamsa": 1,
-        "coordinates": coords,
-        "datetime": dt_iso,
-        "la": "en"
-    }
+# --- Choghadiya ---
+def get_choghadiya(coordinates, datetime_str):
+    throttle()
     url = "https://api.prokerala.com/v2/astrology/choghadiya"
+    params = {
+        "ayanamsa": 1,
+        "coordinates": coordinates,
+        "datetime": datetime_str,
+        "la": "en"
+    }
     response = requests.get(url, headers=HEADERS, params=params)
     response.raise_for_status()
     return response.json()
 
-# ----------------------------
-# 🌕 Chandra Bala API
-# ----------------------------
-def get_chandra_bala(coords, dt_iso):
-    params = {
-        "ayanamsa": 1,
-        "coordinates": coords,
-        "datetime": dt_iso,
-        "la": "en"
-    }
+# --- Chandra Bala ---
+def get_chandra_bala(coordinates, datetime_str):
+    throttle()
     url = "https://api.prokerala.com/v2/astrology/chandra-bala"
-    response = requests.get(url, headers=HEADERS, params=params)
-    response.raise_for_status()
-    return response.json()
-
-# ----------------------------
-# 🌟 Tara Bala API
-# ----------------------------
-def get_tara_bala(coords, dt_iso):
     params = {
         "ayanamsa": 1,
-        "coordinates": coords,
-        "datetime": dt_iso,
+        "coordinates": coordinates,
+        "datetime": datetime_str,
         "la": "en"
     }
-    url = "https://api.prokerala.com/v2/astrology/tara-bala"
     response = requests.get(url, headers=HEADERS, params=params)
     response.raise_for_status()
     return response.json()
 
-# ----------------------------
-# 🧠 Get Rashi & Nakshatra from DOB/TOB/Location
-# ----------------------------
-def get_kundali(datetime_iso, coordinates_dict):
-    coords = get_coordinates_str(coordinates_dict)
+# --- Tara Bala ---
+def get_tara_bala(coordinates, datetime_str):
+    throttle()
+    url = "https://api.prokerala.com/v2/astrology/tara-bala"
     params = {
         "ayanamsa": 1,
-        "coordinates": coords,
+        "coordinates": coordinates,
+        "datetime": datetime_str,
+        "la": "en"
+    }
+    response = requests.get(url, headers=HEADERS, params=params)
+    response.raise_for_status()
+    return response.json()
+
+# --- Birth Details for Rashi/Nakshatra ---
+def get_kundali(datetime_iso, coordinates):
+    throttle()
+    url = "https://api.prokerala.com/v2/astrology/birth-details"
+    params = {
+        "ayanamsa": 1,
+        "coordinates": coordinates,
         "datetime": datetime_iso,
         "la": "en"
     }
-    url = "https://api.prokerala.com/v2/astrology/birth-details"
     response = requests.get(url, headers=HEADERS, params=params)
     response.raise_for_status()
-    data = response.json()["data"]
+    data = response.json().get("data", {})
+    rashi = data.get("chandra_rasi", {}).get("name")
+    nakshatra = data.get("nakshatra", {}).get("name")
+    pada = data.get("nakshatra", {}).get("pada")
     return {
-        "chandra_rasi": data["chandra_rasi"]["name"],
-        "nakshatra": data["nakshatra"]["name"],
-        "pada": data["nakshatra"]["pada"]
+        "chandra_rasi": rashi,
+        "nakshatra": nakshatra,
+        "pada": pada
     }

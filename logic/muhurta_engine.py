@@ -1,79 +1,73 @@
-from datetime import datetime, timedelta
 from api.prokerala_api import get_choghadiya, get_chandra_bala, get_tara_bala
-from utils.digipin_utils import get_coordinates_from_digipin
+from datetime import datetime, timedelta
 
-# ------------------------------------
-# ⏳ Utility: ISO 8601 Date Generator
-# ------------------------------------
-def generate_dates(start_date_str, end_date_str):
-    start = datetime.strptime(start_date_str, "%Y-%m-%d")
-    end = datetime.strptime(end_date_str, "%Y-%m-%d")
-    date_list = []
-    while start <= end:
-        date_list.append(start.strftime("%Y-%m-%dT00:00:00+05:30"))
-        start += timedelta(days=1)
-    return date_list
-
-# ------------------------------------
-# 🌙 Main Muhurta Logic
-# ------------------------------------
 def get_good_muhurta_slots(start_date_str, end_date_str, coordinates, rasi, nakshatra):
-    coords_str = f"{coordinates['latitude']},{coordinates['longitude']}"
-    date_list = generate_dates(start_date_str, end_date_str)
+    all_good_slots = []
 
-    good_slots = []
+    start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+    delta = timedelta(days=1)
 
-    for date_iso in date_list:
-        # 1. Chandra Bala (for rasi)
-        cb_data = get_chandra_bala(coords_str, date_iso)
-        cb_windows = [
-            {"start": slot["start"], "end": slot["end"]}
-            for slot in cb_data["data"]["chandra_bala"]
-            if any(r["name"].lower() == rasi.lower() for r in slot["rasis"])
-        ]
+    current_date = start_date
 
-        if not cb_windows:
-            continue  # No favorable rashi windows that day
+    while current_date <= end_date:
+        date_iso = current_date.strftime("%Y-%m-%dT00:00:00+05:30")
 
-        # 2. Tara Bala (for nakshatra)
-        tb_data = get_tara_bala(coords_str, date_iso)
-        tb_windows = [
-            {"start": block["start"], "end": block["end"]}
-            for block in tb_data["data"]["tara_bala"]
-            if any(n["name"].lower() == nakshatra.lower() for n in block["nakshatras"])
-        ]
+        try:
+            # Get all good Choghadiya
+            choghadiya_data = get_choghadiya(coordinates, date_iso)
+            choghadiyas = choghadiya_data.get("data", {}).get("muhurat", [])
+            good_choghadiyas = [c for c in choghadiyas if c["type"] in {"Good", "Most Auspicious"}]
 
-        if not tb_windows:
-            continue  # No favorable nakshatra windows that day
+            # Get favorable Chandra Bala slots
+            chandra_data = get_chandra_bala(coordinates, date_iso)
+            favorable_chandra = [
+                window for window in chandra_data.get("data", {}).get("chandra_bala", [])
+                if any(r["name"].lower() == rasi.lower() for r in window.get("rasis", []))
+            ]
 
-        # 3. Compute overlap between CB and TB
-        for cb in cb_windows:
-            cb_start = datetime.fromisoformat(cb["start"])
-            cb_end = datetime.fromisoformat(cb["end"])
+            # Get favorable Tara Bala nakshatras
+            tara_data = get_tara_bala(coordinates, date_iso)
+            favorable_tara = [
+                tb for tb in tara_data.get("data", {}).get("tara_bala", [])
+                if any(n["name"].lower() == nakshatra.lower() for n in tb.get("nakshatras", []))
+            ]
 
-            for tb in tb_windows:
-                tb_start = datetime.fromisoformat(tb["start"])
-                tb_end = datetime.fromisoformat(tb["end"])
+            # Overlap logic: check if Choghadiya slots lie within both Chandra & Tara windows
+            for ch in good_choghadiyas:
+                ch_start = datetime.fromisoformat(ch["start"])
+                ch_end = datetime.fromisoformat(ch["end"])
 
-                # Overlap logic
-                start = max(cb_start, tb_start)
-                end = min(cb_end, tb_end)
+                for cb in favorable_chandra:
+                    cb_start = datetime.fromisoformat(cb["start"])
+                    cb_end = datetime.fromisoformat(cb["end"])
 
-                if start < end:
-                    # 4. Fetch Choghadiya
-                    ch_data = get_choghadiya(coords_str, date_iso)
-                    choghadiya_blocks = ch_data["data"]["muhurat"]
-                    for ch in choghadiya_blocks:
-                        ch_start = datetime.fromisoformat(ch["start"])
-                        ch_end = datetime.fromisoformat(ch["end"])
+                    if cb_end < ch_start or cb_start > ch_end:
+                        continue  # No overlap
 
-                        if ch["type"] in {"Good", "Most Auspicious"} and start <= ch_start and ch_end <= end:
-                            good_slots.append({
-                                "label": ch["name"],
-                                "start": ch["start"],
-                                "end": ch["end"],
-                                "vela": ch["type"],
+                    for tb in favorable_tara:
+                        tb_start = datetime.fromisoformat(tb["start"])
+                        tb_end = datetime.fromisoformat(tb["end"])
+
+                        # Check full overlap
+                        if tb_end < ch_start or tb_start > ch_end:
+                            continue
+
+                        start_time = max(ch_start, cb_start, tb_start)
+                        end_time = min(ch_end, cb_end, tb_end)
+
+                        if start_time < end_time:
+                            all_good_slots.append({
+                                "label": f"{ch['name']} Muhurat",
+                                "start": start_time.strftime("%Y-%m-%d %H:%M"),
+                                "end": end_time.strftime("%Y-%m-%d %H:%M"),
+                                "vela": ch["name"],
                                 "is_day": ch["is_day"]
                             })
 
-    return good_slots
+        except Exception as e:
+            print(f"⚠️ Failed to fetch data for {current_date.date()}: {e}")
+
+        current_date += delta
+
+    return all_good_slots
