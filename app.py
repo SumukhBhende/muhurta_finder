@@ -81,8 +81,9 @@ if option == "Date, Time & Place of Birth":
         birth_datetime = datetime.combine(dob, tob)
         try:
             from api.prokerala_api import get_kundali
+            datetime_with_tz = birth_datetime.isoformat() + "+05:30"
             rashi, nakshatra, pada = get_kundali(
-                birth_datetime.isoformat(),
+                datetime_with_tz,
                 f"{birth_coordinates['latitude']},{birth_coordinates['longitude']}"
             )
             user_rashi = rashi
