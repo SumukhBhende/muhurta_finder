@@ -1,10 +1,6 @@
 .env
 .venv
-<<<<<<< HEAD
-test.ipynb
-=======
 api/__pycache__
 logic/__pycache__
 utils/__pycache__
 tests.ipynb
->>>>>>> master
