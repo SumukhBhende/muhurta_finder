@@ -55,7 +55,7 @@ option = st.radio(
     ["Date, Time & Place of Birth", "Directly Enter Rashi & Nakshatra"]
 )
 
-rashi = nakshatra = birth_datetime = birth_coordinates = None
+rashi = nakshatra = birth_datetime = birth_coordinates = user_rashi = user_nakshatra = None
 
 if option == "Date, Time & Place of Birth":
     col1, col2 = st.columns(2)
@@ -97,6 +97,8 @@ elif option == "Directly Enter Rashi & Nakshatra":
     if rashi:
         valid_nakshatras = RASHI_TO_NAKSHATRAS[rashi]
         nakshatra = st.selectbox("✨ Your Janma Nakshatra", valid_nakshatras)
+        user_rashi = rashi
+        user_nakshatra = nakshatra
 
 # --- Date Range Input ---
 st.markdown("---")
@@ -120,19 +122,7 @@ if st.button("🔍 Find Muhurtas"):
         st.error("⚠️ Please enter a valid current location DigiPin.")
         st.stop()
 
-    # Determine rashi & nakshatra
-    if birth_datetime and birth_coordinates:
-        try:
-            birth_info = get_kundali(birth_datetime.isoformat(), birth_coordinates)
-            user_rashi = birth_info["chandra_rasi"]
-            user_nakshatra = birth_info["nakshatra"]
-        except Exception as e:
-            st.error(f"❌ Could not determine Rashi & Nakshatra from birth info: {e}")
-            st.stop()
-    elif rashi and nakshatra:
-        user_rashi = rashi
-        user_nakshatra = nakshatra
-    else:
+    if not (user_rashi and user_nakshatra):
         st.error("❌ Rashi & Nakshatra not provided.")
         st.stop()
 
