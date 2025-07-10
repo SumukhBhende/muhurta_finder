@@ -1,2 +1,5 @@
 .env
 .venv
+api/__pycache__
+logic/__pycache__
+utils/__pycache__
