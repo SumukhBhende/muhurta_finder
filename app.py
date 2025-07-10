@@ -62,7 +62,7 @@ if option == "Date, Time & Place of Birth":
     with col1:
         dob = st.date_input("📅 Date of Birth")
     with col2:
-        tob = st.time_input("⏰ Time of Birth", value=datetime.strptime("04:02", "%H:%M").time())
+        tob = st.time_input("⏰ Time of Birth", value=datetime.strptime("00:00", "%H:%M").time())
 
     birth_digipin = st.text_input("📍 Birth Place DigiPin", max_chars=15)
     normalized_birth_digipin = normalize_digipin(birth_digipin)
