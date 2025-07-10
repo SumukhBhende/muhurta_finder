@@ -2,6 +2,7 @@ import requests
 import os
 import time
 from datetime import datetime
+from dateutil.parser import parse as parse_datetime
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -33,10 +34,35 @@ def throttle():
     time.sleep(5)  # 5000 milliseconds delay
 
 # --- Choghadiya ---
+<<<<<<< HEAD
 # --- Choghadiya (only good types) ---
 def get_choghadiya(coordinates, datetime_str):
     throttle()
 
+=======
+from dateutil.parser import isoparse
+
+
+# --- Inauspicious Periods Helper ---
+def get_inauspicious_periods(coordinates, datetime_str):
+    throttle()
+    url = "https://api.prokerala.com/v2/astrology/inauspicious-period"
+    params = {
+        "ayanamsa": 1,
+        "coordinates": coordinates,
+        "datetime": datetime_str,
+        "la": "en"
+    }
+    response = requests.get(url, headers=HEADERS, params=params)
+    response.raise_for_status()
+    return response.json()
+
+# --- Choghadiya ---
+def get_choghadiya(coordinates, datetime_str):
+    throttle()
+
+    # Step 1: Fetch choghadiya
+>>>>>>> 40c9d1041d41c2b231134d2055fb7983eb6fc1cf
     url = "https://api.prokerala.com/v2/astrology/choghadiya"
     params = {
         "ayanamsa": 1,
@@ -49,6 +75,7 @@ def get_choghadiya(coordinates, datetime_str):
     response.raise_for_status()
     choghadiya_data = response.json()
 
+<<<<<<< HEAD
     # Filter only good Choghadiya blocks
     good_types = {"Most Auspicious", "Good"}
     filtered_blocks = [
@@ -58,7 +85,35 @@ def get_choghadiya(coordinates, datetime_str):
 
     # Replace muhurat with filtered good ones
     choghadiya_data["data"]["muhurat"] = filtered_blocks
+=======
+    # Step 2: Fetch inauspicious periods
+    inauspicious_data = get_inauspicious_periods(coordinates, datetime_str)
+    inauspicious_periods = []
+    for muhurta in inauspicious_data.get("data", {}).get("muhurat", []):
+        for period in muhurta.get("period", []):
+            start = parse_datetime(period["start"])
+            end = parse_datetime(period["end"])
+            inauspicious_periods.append((start, end))
+
+    # Step 3: Filter out overlapping choghadiya blocks
+    filtered_choghadiyas = []
+    for ch in choghadiya_data.get("data", []):
+        ch_start = parse_datetime(ch["start"])
+        ch_end = parse_datetime(ch["end"])
+
+        overlaps = any(
+            ch_start < bad_end and ch_end > bad_start
+            for bad_start, bad_end in inauspicious_periods
+        )
+
+        if not overlaps:
+            filtered_choghadiyas.append(ch)
+
+    # Step 4: Return in same JSON structure
+    choghadiya_data["data"] = filtered_choghadiyas
+>>>>>>> 40c9d1041d41c2b231134d2055fb7983eb6fc1cf
     return choghadiya_data
+
 
 # --- Chandra Bala ---
 def get_chandra_bala(coordinates, datetime_str):
