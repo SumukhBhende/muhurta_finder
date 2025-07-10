@@ -1,71 +1,79 @@
 from datetime import datetime, timedelta
-from api.prokerala_api import get_chandra_balam, get_tara_balam, get_choghadiya
+from api.prokerala_api import get_choghadiya, get_chandra_bala, get_tara_bala
+from utils.digipin_utils import get_coordinates_from_digipin
 
+# ------------------------------------
+# ⏳ Utility: ISO 8601 Date Generator
+# ------------------------------------
+def generate_dates(start_date_str, end_date_str):
+    start = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end = datetime.strptime(end_date_str, "%Y-%m-%d")
+    date_list = []
+    while start <= end:
+        date_list.append(start.strftime("%Y-%m-%dT00:00:00+05:30"))
+        start += timedelta(days=1)
+    return date_list
 
-def parse_iso(dt_str):
-    try:
-        return datetime.fromisoformat(dt_str)
-    except Exception:
-        return None
-
-
+# ------------------------------------
+# 🌙 Main Muhurta Logic
+# ------------------------------------
 def get_good_muhurta_slots(start_date_str, end_date_str, coordinates, rasi, nakshatra):
-    """
-    Returns a list of muhurta periods where Chandra Balam, Tara Balam, and Choghadiya are all favorable.
+    coords_str = f"{coordinates['latitude']},{coordinates['longitude']}"
+    date_list = generate_dates(start_date_str, end_date_str)
 
-    Parameters:
-        - start_date_str (str): format "YYYY-MM-DD"
-        - end_date_str (str): format "YYYY-MM-DD"
-        - coordinates (dict): {"latitude": float, "longitude": float}
-        - rasi (str): User's moon sign
-        - nakshatra (str): User's birth star
+    good_slots = []
 
-    Returns:
-        - List of dicts with start, end, vela, label, is_day
-    """
-    start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-    end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+    for date_iso in date_list:
+        # 1. Chandra Bala (for rasi)
+        cb_data = get_chandra_bala(coords_str, date_iso)
+        cb_windows = [
+            {"start": slot["start"], "end": slot["end"]}
+            for slot in cb_data["data"]["chandra_bala"]
+            if any(r["name"].lower() == rasi.lower() for r in slot["rasis"])
+        ]
 
-    current_date = start_date
-    results = []
+        if not cb_windows:
+            continue  # No favorable rashi windows that day
 
-    while current_date <= end_date:
-        datetime_str = current_date.strftime("%Y-%m-%dT00:00:00")
+        # 2. Tara Bala (for nakshatra)
+        tb_data = get_tara_bala(coords_str, date_iso)
+        tb_windows = [
+            {"start": block["start"], "end": block["end"]}
+            for block in tb_data["data"]["tara_bala"]
+            if any(n["name"].lower() == nakshatra.lower() for n in block["nakshatras"])
+        ]
 
-        # Fetch data
-        chandra = get_chandra_balam(datetime_str, coordinates, rasi)
-        tara = get_tara_balam(datetime_str, coordinates, nakshatra)
-        choghadiya_periods = get_choghadiya(datetime_str, coordinates)
+        if not tb_windows:
+            continue  # No favorable nakshatra windows that day
 
-        if not (chandra and chandra.get("is_favorable") and
-                tara and tara.get("is_favorable")):
-            current_date += timedelta(days=1)
-            continue
+        # 3. Compute overlap between CB and TB
+        for cb in cb_windows:
+            cb_start = datetime.fromisoformat(cb["start"])
+            cb_end = datetime.fromisoformat(cb["end"])
 
-        chandra_start = parse_iso(datetime_str)
-        chandra_end = parse_iso(chandra.get("until"))
-        tara_start = parse_iso(datetime_str)
-        tara_end = parse_iso(tara.get("valid_until"))
+            for tb in tb_windows:
+                tb_start = datetime.fromisoformat(tb["start"])
+                tb_end = datetime.fromisoformat(tb["end"])
 
-        for muhurta in choghadiya_periods:
-            m_start = parse_iso(muhurta["start"])
-            m_end = parse_iso(muhurta["end"])
+                # Overlap logic
+                start = max(cb_start, tb_start)
+                end = min(cb_end, tb_end)
 
-            if not all([m_start, m_end, chandra_start, chandra_end, tara_start, tara_end]):
-                continue
+                if start < end:
+                    # 4. Fetch Choghadiya
+                    ch_data = get_choghadiya(coords_str, date_iso)
+                    choghadiya_blocks = ch_data["data"]["muhurat"]
+                    for ch in choghadiya_blocks:
+                        ch_start = datetime.fromisoformat(ch["start"])
+                        ch_end = datetime.fromisoformat(ch["end"])
 
-            # Ensure Choghadiya fits within both Chandra & Tara Balam windows
-            if chandra_start <= m_start <= chandra_end and \
-               tara_start <= m_start <= tara_end and \
-               m_end <= chandra_end and m_end <= tara_end:
-                results.append({
-                    "start": muhurta["start"],
-                    "end": muhurta["end"],
-                    "vela": muhurta["vela"],
-                    "is_day": muhurta["is_day"],
-                    "label": muhurta["name"]
-                })
+                        if ch["type"] in {"Good", "Most Auspicious"} and start <= ch_start and ch_end <= end:
+                            good_slots.append({
+                                "label": ch["name"],
+                                "start": ch["start"],
+                                "end": ch["end"],
+                                "vela": ch["type"],
+                                "is_day": ch["is_day"]
+                            })
 
-        current_date += timedelta(days=1)
-
-    return results
+    return good_slots
