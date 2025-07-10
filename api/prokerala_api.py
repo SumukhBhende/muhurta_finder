@@ -30,9 +30,39 @@ HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 # --- Delay helper ---
 def throttle():
-    time.sleep(5)  # 5000 milliseconds delay
+    time.sleep(8)  # 5000 milliseconds delay
 
 # --- Choghadiya ---
+from dateutil import parser
+
+# Helper to check overlap
+def intervals_overlap(start1, end1, start2, end2):
+    return max(start1, start2) < min(end1, end2)
+
+# Fetch inauspicious periods
+def get_inauspicious_periods(coordinates, datetime_str):
+    throttle()
+    url = "https://api.prokerala.com/v2/astrology/inauspicious-period"
+    params = {
+        "ayanamsa": 1,
+        "coordinates": coordinates,
+        "datetime": datetime_str,
+        "la": "en"
+    }
+    response = requests.get(url, headers=HEADERS, params=params)
+    response.raise_for_status()
+
+    periods = []
+    muhurats = response.json().get("data", {}).get("muhurat", [])
+    for muhurta in muhurats:
+        for p in muhurta.get("period", []):
+            periods.append({
+                "start": parser.isoparse(p["start"]),
+                "end": parser.isoparse(p["end"])
+            })
+    return periods
+
+# Choghadiya with filtering
 def get_choghadiya(coordinates, datetime_str):
     throttle()
     url = "https://api.prokerala.com/v2/astrology/choghadiya"
@@ -44,7 +74,23 @@ def get_choghadiya(coordinates, datetime_str):
     }
     response = requests.get(url, headers=HEADERS, params=params)
     response.raise_for_status()
-    return response.json()
+    choghadiya_data = response.json()
+
+    # Fetch and filter inauspicious periods
+    inauspicious = get_inauspicious_periods(coordinates, datetime_str)
+
+    # Filter vela blocks
+    original_vela = choghadiya_data.get("data", {}).get("vela", [])
+    filtered_vela = []
+    for block in original_vela:
+        start = parser.isoparse(block["start"])
+        end = parser.isoparse(block["end"])
+        if not any(intervals_overlap(start, end, bad["start"], bad["end"]) for bad in inauspicious):
+            filtered_vela.append(block)
+
+    # Replace vela with filtered ones
+    choghadiya_data["data"]["vela"] = filtered_vela
+    return choghadiya_data
 
 # --- Chandra Bala ---
 def get_chandra_bala(coordinates, datetime_str):
