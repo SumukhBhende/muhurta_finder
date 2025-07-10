@@ -80,7 +80,6 @@ if option == "Date, Time & Place of Birth":
     if dob and tob and birth_coordinates:
         birth_datetime = datetime.combine(dob, tob)
         try:
-            from api.prokerala_api import get_kundali
             datetime_with_tz = birth_datetime.isoformat() + "+05:30"
             rashi, nakshatra, pada = get_kundali(
                 datetime_with_tz,
@@ -88,8 +87,7 @@ if option == "Date, Time & Place of Birth":
             )
             user_rashi = rashi
             user_nakshatra = nakshatra
-            st.success(f"🎯 Birth details recorded successfully.")
-            st.success(f"🌙 Your Rashi is **{rashi}** and your Nakshatra is **{nakshatra}**")
+            st.success(f"🌙 Your Rashi is **{user_rashi}** and your Nakshatra is **{user_nakshatra}**")
         except Exception as e:
             st.error(f"❌ Failed to fetch Kundali details: {e}")
             st.stop()
