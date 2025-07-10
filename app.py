@@ -60,7 +60,7 @@ rashi = nakshatra = birth_datetime = birth_coordinates = None
 if option == "Date, Time & Place of Birth":
     col1, col2 = st.columns(2)
     with col1:
-        dob = st.date_input("📅 Date of Birth")
+        dob = st.date_input("📅 Date of Birth", min_value=datetime(1950, 1, 1))
     with col2:
         tob = st.time_input("⏰ Time of Birth", value=datetime.strptime("00:00", "%H:%M").time())
 
@@ -79,7 +79,19 @@ if option == "Date, Time & Place of Birth":
 
     if dob and tob and birth_coordinates:
         birth_datetime = datetime.combine(dob, tob)
-        st.success(f"🎯 Birth details recorded successfully.")
+        try:
+            from api.prokerala_api import get_kundali
+            rashi, nakshatra, pada = get_kundali(
+                birth_datetime.isoformat(),
+                f"{birth_coordinates['latitude']},{birth_coordinates['longitude']}"
+            )
+            user_rashi = rashi
+            user_nakshatra = nakshatra
+            st.success(f"🎯 Birth details recorded successfully.")
+            st.success(f"🌙 Your Rashi is **{rashi}** and your Nakshatra is **{nakshatra}**")
+        except Exception as e:
+            st.error(f"❌ Failed to fetch Kundali details: {e}")
+            st.stop()
 
 elif option == "Directly Enter Rashi & Nakshatra":
     rashi = st.selectbox("🌙 Your Chandra Rashi", list(RASHI_TO_NAKSHATRAS.keys()))
