@@ -76,7 +76,6 @@ def get_choghadiya(coordinates, datetime_str):
     inauspicious_periods = []
     for item in inauspicious_data:
         for period in item.get("period", []):
-            # Defensive check
             if isinstance(period, dict) and "start" in period and "end" in period:
                 try:
                     inauspicious_periods.append({
@@ -88,7 +87,7 @@ def get_choghadiya(coordinates, datetime_str):
                     print(f"Error parsing inauspicious period: {e}")
                     continue
 
-    # Fetch choghadiya
+    # Fetch original choghadiya
     choghadiya_url = "https://api.prokerala.com/v2/astrology/choghadiya"
     choghadiya_params = {
         "ayanamsa": 1,
@@ -106,7 +105,6 @@ def get_choghadiya(coordinates, datetime_str):
         block_start = isoparse(block["start"])
         block_end = isoparse(block["end"])
 
-        # Check if overlaps with any inauspicious period
         overlaps = any(
             block_start < period["end"] and block_end > period["start"]
             for period in inauspicious_periods
@@ -114,7 +112,9 @@ def get_choghadiya(coordinates, datetime_str):
         if not overlaps:
             filtered_blocks.append(block)
 
-    return {"data": filtered_blocks}
+    # Return original structure with modified 'data'
+    choghadiya_data["data"] = filtered_blocks
+    return choghadiya_data
 
 
 # --- Chandra Bala ---
