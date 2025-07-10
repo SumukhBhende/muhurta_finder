@@ -61,38 +61,60 @@ def get_inauspicious_periods(coordinates, datetime_str):
 def get_choghadiya(coordinates, datetime_str):
     throttle()
 
-    # Step 1: Get original Choghadiya
-    choghadiya_url = "https://api.prokerala.com/v2/astrology/choghadiya"
-    params = {
+    # Fetch inauspicious periods
+    inauspicious_url = "https://api.prokerala.com/v2/astrology/inauspicious-period"
+    inauspicious_params = {
         "ayanamsa": 1,
         "coordinates": coordinates,
         "datetime": datetime_str,
         "la": "en"
     }
-    choghadiya_response = requests.get(choghadiya_url, headers=HEADERS, params=params)
-    choghadiya_response.raise_for_status()
-    choghadiya_data = choghadiya_response.json()
+    inauspicious_resp = requests.get(inauspicious_url, headers=HEADERS, params=inauspicious_params)
+    inauspicious_resp.raise_for_status()
+    inauspicious_data = inauspicious_resp.json().get("data", {}).get("muhurat", [])
 
-    # Step 2: Get inauspicious periods
-    inauspicious_periods = get_inauspicious_periods(coordinates, datetime_str)
+    inauspicious_periods = []
+    for item in inauspicious_data:
+        for period in item.get("period", []):
+            # Defensive check
+            if isinstance(period, dict) and "start" in period and "end" in period:
+                try:
+                    inauspicious_periods.append({
+                        "start": isoparse(period["start"]),
+                        "end": isoparse(period["end"]),
+                        "name": item.get("name")
+                    })
+                except Exception as e:
+                    print(f"Error parsing inauspicious period: {e}")
+                    continue
 
-    # Step 3: Filter out overlapping choghadiyas
-    filtered_choghadiya = []
+    # Fetch choghadiya
+    choghadiya_url = "https://api.prokerala.com/v2/astrology/choghadiya"
+    choghadiya_params = {
+        "ayanamsa": 1,
+        "coordinates": coordinates,
+        "datetime": datetime_str,
+        "la": "en"
+    }
+    choghadiya_resp = requests.get(choghadiya_url, headers=HEADERS, params=choghadiya_params)
+    choghadiya_resp.raise_for_status()
+    choghadiya_data = choghadiya_resp.json()
+
+    # Filter choghadiya blocks
+    filtered_blocks = []
     for block in choghadiya_data.get("data", []):
         block_start = isoparse(block["start"])
         block_end = isoparse(block["end"])
 
+        # Check if overlaps with any inauspicious period
         overlaps = any(
-            not (block_end <= period_start or block_start >= period_end)
-            for period_start, period_end in inauspicious_periods
+            block_start < period["end"] and block_end > period["start"]
+            for period in inauspicious_periods
         )
-
         if not overlaps:
-            filtered_choghadiya.append(block)
+            filtered_blocks.append(block)
 
-    # Step 4: Return same JSON structure, but with filtered data
-    choghadiya_data["data"] = filtered_choghadiya
-    return choghadiya_data
+    return {"data": filtered_blocks}
 
 
 # --- Chandra Bala ---
