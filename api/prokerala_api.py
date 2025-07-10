@@ -30,7 +30,7 @@ HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 # --- Delay helper ---
 def throttle():
-    time.sleep(5)  # 5000 milliseconds delay
+    time.sleep(12)  # 5000 milliseconds delay
 
 # --- Choghadiya ---
 # --- Choghadiya (only good types) ---
