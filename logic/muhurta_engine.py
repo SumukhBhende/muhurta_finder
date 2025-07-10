@@ -21,14 +21,14 @@ def get_good_muhurta_slots(start_date_str, end_date_str, coordinates, rasi, naks
             good_choghadiyas = [c for c in choghadiyas if c["type"] in {"Good", "Most Auspicious"}]
 
             # Get favorable Chandra Bala slots
-            chandra_data = get_chandra_bala(coordinates, date_iso)
+            chandra_data = get_chandra_bala(coordinate_str, date_iso)
             favorable_chandra = [
                 window for window in chandra_data.get("data", {}).get("chandra_bala", [])
                 if any(r["name"].lower() == rasi.lower() for r in window.get("rasis", []))
             ]
 
             # Get favorable Tara Bala nakshatras
-            tara_data = get_tara_bala(coordinates, date_iso)
+            tara_data = get_tara_bala(coordinate_str, date_iso)
             favorable_tara = [
                 tb for tb in tara_data.get("data", {}).get("tara_bala", [])
                 if any(n["name"].lower() == nakshatra.lower() for n in tb.get("nakshatras", []))
