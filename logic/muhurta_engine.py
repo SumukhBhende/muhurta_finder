@@ -15,7 +15,8 @@ def get_good_muhurta_slots(start_date_str, end_date_str, coordinates, rasi, naks
 
         try:
             # Get all good Choghadiya
-            choghadiya_data = get_choghadiya(coordinates, date_iso)
+            coordinate_str = f"{coordinates['latitude']},{coordinates['longitude']}"
+            choghadiya_data = get_choghadiya(coordinate_str, date_iso)
             choghadiyas = choghadiya_data.get("data", {}).get("muhurat", [])
             good_choghadiyas = [c for c in choghadiyas if c["type"] in {"Good", "Most Auspicious"}]
 
