@@ -1,19 +1,16 @@
 import streamlit as st
 from datetime import datetime, timedelta
 from logic.muhurta_engine import get_good_muhurta_slots
-from utils.digipin_utils import get_coordinates_from_digipin
+from utils.pincode_utils import get_coordinates_from_pincode
 from api.prokerala_api import get_kundali
 
 st.set_page_config(page_title="Muhurta Finder", page_icon="🌙")
 st.title("🌟 Auspicious Muhurta Finder")
 
 # --- Utilities ---
-def normalize_digipin(code: str) -> str:
-    return code.replace("-", "").replace(" ", "").strip().upper()
+def clean_pincode(pin: str) -> str:
+    return pin.strip().replace(" ", "")  # optional
 
-def format_digipin(code: str) -> str:
-    code = normalize_digipin(code)
-    return f"{code[:3]}-{code[3:6]}-{code[6:]}" if len(code) == 10 else code
 
 # --- Rashi to Nakshatra Mapping ---
 RASHI_TO_NAKSHATRAS = {
@@ -35,16 +32,21 @@ RASHI_TO_NAKSHATRAS = {
 st.markdown("---")
 st.subheader("📍 Enter Your Current Location")
 
-digipin = st.text_input("📌 Enter DigiPin (location code)", max_chars=15)
-normalized_digipin = normalize_digipin(digipin)
+pincode = st.text_input("📌 Enter 6-digit Indian Pincode")
 
-if digipin and len(normalized_digipin) != 10:
-    st.error("❌ Please enter a valid 10-character DigiPin.")
+if pincode and (not pincode.isdigit() or len(pincode) != 6):
+    st.error("❌ Please enter a valid 6-digit Indian Pincode.")
     st.stop()
 
-coordinates = get_coordinates_from_digipin(normalized_digipin) if digipin else None
+# You’ll need to replace this with a working pincode-to-coordinates function
+from utils.pincode_utils import get_coordinates_from_pincode
+
+coordinates = get_coordinates_from_pincode(pincode) if pincode else None
 if coordinates:
-    st.success(f"📌 Location: {format_digipin(digipin)} → {coordinates['latitude']}, {coordinates['longitude']}")
+    st.success(f"📌 Location (Pincode: {pincode}) → {coordinates['latitude']}, {coordinates['longitude']}")
+else:
+    if pincode:
+        st.error("❌ Could not fetch coordinates for the entered pincode.")
 
 # --- Birth Info Input ---
 st.markdown("---")
@@ -64,17 +66,16 @@ if option == "Date, Time & Place of Birth":
     with col2:
         tob = st.time_input("⏰ Time of Birth", value=datetime.strptime("00:00", "%H:%M").time())
 
-    birth_digipin = st.text_input("📍 Birth Place DigiPin", max_chars=15)
-    normalized_birth_digipin = normalize_digipin(birth_digipin)
+    birth_pincode = st.text_input("📍 Birth Place Pincode")
 
-    if birth_digipin and len(normalized_birth_digipin) != 10:
-        st.error("❌ Please enter a valid 10-character Birth DigiPin.")
+    if birth_pincode and (not birth_pincode.isdigit() or len(birth_pincode) != 6):
+        st.error("❌ Please enter a valid 6-digit Indian Pincode.")
         st.stop()
 
-    if birth_digipin:
-        birth_coordinates = get_coordinates_from_digipin(normalized_birth_digipin)
+    if birth_pincode:
+        birth_coordinates = get_coordinates_from_pincode(birth_pincode)
         if not birth_coordinates:
-            st.error("❌ Could not decode Birth DigiPin.")
+            st.error("❌ Could not fetch coordinates for the entered Pincode.")
             st.stop()
 
     if dob and tob and birth_coordinates:
