@@ -1,5 +1,6 @@
 import requests
 from dateutil import parser
+import json
 import requests
 import os
 import time
@@ -99,7 +100,7 @@ def get_choghadiya(coordinates: str, datetime_iso: str):
                 "end": block["end"]
             })
 
-    return good_blocks
+    return json.dumps(good_blocks, indent=2)
 
 # --- Chandra Bala ---
 def get_chandra_bala(coordinates, datetime_str):
