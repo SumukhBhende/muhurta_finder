@@ -33,7 +33,7 @@ HEADERS = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
 
 # --- Constants ---
-GOOD_CHOICES = {'Char', 'Labh', 'Amrit', 'Shubh'}
+GOOD_CHOICES = {'Char', 'Labh', 'Amrit', 'Shubh','Amrut'}
 
 # --- Delay helper ---
 def throttle():
@@ -100,7 +100,7 @@ def get_choghadiya(coordinates: str, datetime_iso: str):
                 "end": block["end"]
             })
 
-    return json.dumps(good_blocks, indent=2)
+    return {"data": {"muhurat": good_blocks}}
 
 # --- Chandra Bala ---
 def get_chandra_bala(coordinates, datetime_str):
