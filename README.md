@@ -1,28 +1,32 @@
-# 🕉️ Muhurta Finder App
+# 🕉️ Muhurta Finder App — *v1.1 Stable*
 
-A Streamlit-based astrology application that helps users find **auspicious muhurta (timing)** for activities based on traditional Indian astrology using:
-- ✅ Chandra Balam (Moon Strength)
-- ✅ Tara Balam (Star Strength)
-- ✅ Choghadiya Muhurat
+A Streamlit-based Indian astrology web application that helps users find **auspicious muhurta (timings)** for personal and spiritual activities.
+
+The app uses **traditional Vedic Panchang elements** and modern APIs to calculate Muhurtas that are astrologically favorable based on:
+- ✅ **Chandra Balam** (Moon Strength)
+- ✅ **Tara Balam** (Star Strength)
+- ✅ **Choghadiya Muhurat**
+- ❌ Avoids **Inauspicious Periods** (Rahu, Yamaganda, Gulika, Dur Muhurat, Varjyam)
 
 ---
 
 ## 🚀 Features
 
 🔹 **Two Input Modes:**
-1. Enter **Date, Time, and Place of Birth** — system calculates Rashi and Nakshatra.
-2. Or directly provide your **Rashi** and **Nakshatra**.
+1. Enter **Date, Time, and Place of Birth** — automatically calculates Rashi & Nakshatra.
+2. Or directly provide your **Rashi** and **Nakshatra** if known.
 
 🔹 **Location Input via DigiPin:**
-- Enter DigiPin in any format: `4K9-MCM-52K7` or `4k9mcm52k7`
-- Supports lowercase and uppercase automatically
-- Internally decoded using CEPT-VZG’s DigiPin open-source system
+- Accepts any format: `4K9-MCM-52K7`, `4k9mcm52k7`, etc.
+- Case-insensitive and format-independent
+- Internally decoded using [CEPT-VZG's DigiPin](https://github.com/CEPT-VZG/digipin) system
 
-🔹 **Auspicious Muhurta Calculation:**
-- Checks if Chandra Balam is favorable for your Rashi
-- Then checks Tara Balam for your Nakshatra
-- Finds overlapping good time window
-- Finally filters Choghadiya Muhurat blocks in that time window that are “Good” or “Most Auspicious”
+🔹 **Auspicious Muhurta Calculation Logic:**
+- Step 1: Checks if **Chandra Balam** favors your Rashi
+- Step 2: Checks if **Tara Balam** supports your Nakshatra
+- Step 3: Finds overlapping windows
+- Step 4: Filters for only “Good” or “Most Auspicious” **Choghadiya** blocks
+- Step 5: 🛡️ **(NEW)** Filters out **inauspicious periods** like Rahu Kalam, Dur Muhurat, etc.
 
 ---
 
@@ -32,30 +36,31 @@ A Streamlit-based astrology application that helps users find **auspicious muhur
 
 muhurta\_finder/
 │
-├── app.py                    # Streamlit frontend UI
+├── app.py                  # 🎯 Streamlit frontend UI
 │
 ├── api/
-│   └── prokerala\_api.py      # Handles all API calls to Prokerala
+│   └── prokerala\_api.py     # 🔮 API calls to Prokerala (Choghadiya, Balam, etc.)
 │
 ├── logic/
-│   └── muhurta\_engine.py     # Core logic for filtering auspicious muhurta
+│   └── muhurta\_engine.py    # 🧠 Filtering logic across Choghadiya + Balam
 │
 ├── utils/
-│   └── digipin\_utils.py      # DigiPin decoding using CEPT-VZG open source
+│   └── digipin\_utils.py     # 📌 DigiPin decoding (CEPT library)
 │
-├── .env                      # Contains PROKERALA\_CLIENT\_ID and CLIENT\_SECRET
-└── README.md
+├── .env                    # 🔐 API credentials
+└── README.md               # 📘 This file
 
 ````
 
 ---
 
-## 🔧 Technologies Used
+## 🔧 Tech Stack
 
-- 🌐 **Streamlit** – for the user interface
-- 🧠 **Prokerala Astrology API** – for Panchang, Choghadiya, Chandra Balam, Tara Balam
-- 🛰️ **CEPT DigiPin System** – for place-based coordinate decoding
+- 🌐 **Streamlit** – UI framework for rapid prototyping
+- 🧠 **Prokerala Astrology API** – Panchang, Balam, Choghadiya, and Inauspicious Periods
+- 🛰️ **CEPT DigiPin System** – For decoding location to lat/lon
 - 🐍 **Python 3.10+**
+- 📦 **venv** – Isolated Python environment
 
 ---
 
@@ -93,30 +98,56 @@ PROKERALA_CLIENT_SECRET=your_client_secret_here
 streamlit run app.py
 ```
 
+Open in browser: [http://localhost:8501](http://localhost:8501)
+
 ---
 
 ## 📸 Screenshots
 
-> *Add Streamlit UI screenshots here once finalized*
+> *(To be added soon: include UI walkthrough and results display preview)*
 
 ---
 
-## ✨ Future Features
+## 📜 Changelog
 
-* Add support for event-specific muhurta (e.g., Griha Pravesh, Marriage, Travel)
-* Allow saving favorite locations or profiles
-* Offline fallback using pre-fetched data or Panchang rules
+### v1.0 – Initial Version
+
+* Basic logic for finding Choghadiya + Balam overlaps
+* DigiPin-based location input
+* Two input modes (birth details or Rashi/Nakshatra)
+
+### v1.1 – Major Improvements
+
+* ✅ Added support for Prokerala’s `/inauspicious-period` API
+* ✅ Filters out Choghadiya blocks that overlap with Rahu, Yamaganda, Dur Muhurat, Gulika, and Varjyam
+* ✅ Fixed Streamlit state issues and error handling
+* ✅ Improved response formatting with `json.dumps()` fix
+* ✅ Polished UI and input validations
+
+---
+
+## ✨ Planned Features
+
+* 📂 Export results to PDF
+* 🕉️ Add filters for event-based muhurta (marriage, travel, etc.)
+* 💾 Save favorite profiles and birth presets
+* 🌐 Deploy on Streamlit Cloud
+* 📱 Mobile-optimized UI layout
 
 ---
 
 ## 🙏 Credits
 
-* [Prokerala API](https://www.prokerala.com/astrology/api/)
-* [CEPT DigiPin](https://github.com/CEPT-VZG/digipin)
-* UI built using [Streamlit](https://streamlit.io)
+* 🪐 [Prokerala API](https://www.prokerala.com/astrology/api/)
+* 📍 [CEPT DigiPin](https://github.com/CEPT-VZG/digipin)
+* 🖼️ UI built using [Streamlit](https://streamlit.io)
 
 ---
 
 ## 📜 License
 
-This project is not yet Licensed.
+This project is for academic and personal use. Not yet officially licensed.
+
+---
+
+*✨ Built with soul by **Sumukh Bhende***
