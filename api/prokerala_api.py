@@ -62,7 +62,7 @@ def get_inauspicious_periods(datetime_iso: str, coordinates: str):
     return bad_periods
 
 # --- Choghadiya ---
-def get_choghadiya_filtered(coordinates: str, datetime_iso: str):
+def get_choghadiya(coordinates: str, datetime_iso: str):
     throttle()
     url = "https://api.prokerala.com/v2/astrology/choghadiya"
     params = {
